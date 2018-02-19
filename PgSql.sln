@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.27130.2027
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PgSql", "PgSql\PgSql.csproj", "{CC82B298-CB4A-43DB-909B-D07C4F92F83D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PgSql.Tests", "PgSql.Tests\PgSql.Tests.csproj", "{44ACA391-E76C-496D-8CE0-76C3A16AE581}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{CC82B298-CB4A-43DB-909B-D07C4F92F83D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CC82B298-CB4A-43DB-909B-D07C4F92F83D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CC82B298-CB4A-43DB-909B-D07C4F92F83D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44ACA391-E76C-496D-8CE0-76C3A16AE581}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44ACA391-E76C-496D-8CE0-76C3A16AE581}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44ACA391-E76C-496D-8CE0-76C3A16AE581}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44ACA391-E76C-496D-8CE0-76C3A16AE581}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
