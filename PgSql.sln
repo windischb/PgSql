@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2027
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PgSql", "PgSql\PgSql.csproj", "{CC82B298-CB4A-43DB-909B-D07C4F92F83D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PgSql", "PgSql\PgSql.csproj", "{CC82B298-CB4A-43DB-909B-D07C4F92F83D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PgSql.Tests", "PgSql.Tests\PgSql.Tests.csproj", "{44ACA391-E76C-496D-8CE0-76C3A16AE581}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PgSql.Tests", "PgSql.Tests\PgSql.Tests.csproj", "{44ACA391-E76C-496D-8CE0-76C3A16AE581}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -22,7 +22,7 @@ namespace doob.PgSql {
         }
 
         public Column[] PrimaryKeys() {
-            return OrderedColumns.GetOrderedColums().Where(c => c.Properties.PrimaryKey).ToArray();
+            return OrderedColumns.GetOrderedColums().Where(c => c.IsPrimaryKey).ToArray();
         }
 
         public Column[] Columns() {
@@ -31,7 +31,7 @@ namespace doob.PgSql {
         }
 
         public TableDefinition AddColumn(Column column) {
-            if (Columns().Any(c => c.Properties.Name == column.Properties.Name))
+            if (Columns().Any(c => c.Name == column.Name))
                 throw new ColumnAlreadyExistsException();
 
             OrderedColumns.Add(column);
@@ -39,22 +39,24 @@ namespace doob.PgSql {
             return this;
         }
 
-        public Column AddColumn(string name, string typeName) {
-            var col = Column.Build(name, typeName);
+        public ColumnBuilder AddColumn(string name, string typeName) {
+            Column col = ColumnBuilder.Build(name, typeName);
             AddColumn(col);
-            return GetColumn(col.Properties.Name);
+            return GetColumn(col.Name);
         }
 
-        public Column GetColumn(string name) {
+
+
+        public ColumnBuilder GetColumn(string name) {
             try {
                 if (name.Contains("."))
                     name = name.Split('.')[0];
 
-                var column = Columns().FirstOrDefault(c => c.Properties.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                var column = Columns().FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
                 if(column == null)
-                    column = Columns().FirstOrDefault(c => c.Properties.Alias?.Equals(name, StringComparison.OrdinalIgnoreCase) == true);
+                    column = Columns().FirstOrDefault(c => c.Alias?.Equals(name, StringComparison.OrdinalIgnoreCase) == true);
 
-                return column;
+                return column?.Builder();
             } catch (Exception e) {
                 Logger.Error(e, $"GetColumn('{name}') from {{Columns}}", new object[] {Columns()});
                 throw;
@@ -95,7 +97,10 @@ namespace doob.PgSql {
 
                
                
-                Column col = Column.Build(propertyInfo.Name, propertyInfo.PropertyType);
+                ColumnBuilder col = ColumnBuilder.Build(propertyInfo.Name, propertyInfo.PropertyType);
+
+                //if (propertyInfo.PropertyType.IsEnum)
+                //    col.SetCustomDbType("pg_enum_type");
 
                 var attributes = propertyInfo.GetCustomAttributes<PgSqlAttribute>(true);
                 foreach (var attr in attributes) {
@@ -112,7 +117,7 @@ namespace doob.PgSql {
                     }
 
                     if (attr is PgSqlAliasAttribute alias) {
-                        col.Properties.Alias = alias.Value.ToString();
+                        col.SetAlias(alias.Value.ToString());
                     }
                     
                     if (attr is PgSqlDefaultValueAttribute defaultvalue)
@@ -122,9 +127,11 @@ namespace doob.PgSql {
                         col.MustBeUnique((bool) unique.Value);
 
                     if (attr is PgSqlCustomTypeAttribute custom)
-                        col.Properties.CustomDbType = (string) custom.Value;
+                        col.SetCustomDbType((string) custom.Value);
                 }
 
+
+                
                 def.AddColumn(col);
             }
 
@@ -135,7 +142,7 @@ namespace doob.PgSql {
         {
             foreach (var pgSqlColumn in OrderedColumns.GetOrderedColums())
             {
-                pgSqlColumn.Properties.PrimaryKey = false;
+                pgSqlColumn.IsPrimaryKey = false;
             }
             return this;
         }
@@ -144,7 +151,7 @@ namespace doob.PgSql {
         {
             foreach (var pgSqlColumn in OrderedColumns.GetOrderedColums())
             {
-                pgSqlColumn.Properties.DefaultValue = null;
+                pgSqlColumn.DefaultValue = null;
             }
             return this;
         }
@@ -153,7 +160,7 @@ namespace doob.PgSql {
         {
             foreach (var pgSqlColumn in OrderedColumns.GetOrderedColums())
             {
-                pgSqlColumn.Properties.Unique = false;
+                pgSqlColumn.MustBeUnique = false;
             }
             return this;
         }
@@ -162,7 +169,7 @@ namespace doob.PgSql {
 
     public class TableDefinition<T> : TableDefinition {
 
-        public Column GetColumn(Expression<Func<T, object>> field) {
+        public ColumnBuilder GetColumn(Expression<Func<T, object>> field) {
             var name = field.GetPropertyName();
             return base.GetColumn(name);
         }

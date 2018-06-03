@@ -48,7 +48,7 @@ namespace doob.PgSql.Statements
 
             foreach (var column in tableDefinition.Columns())
             {
-               _intoColumns.AddColumn(column.Properties.Name);
+               _intoColumns.AddColumn(column.Name);
             }
             return this;
         }
@@ -151,7 +151,7 @@ namespace doob.PgSql.Statements
                     var col = tableDefinition?.GetColumn(c._name);
                     if (col == null)
                     {
-                        keyDefinition.AddColumn(new Column().SetName(c._name));
+                        keyDefinition.AddColumn(new ColumnBuilder().SetName(c._name));
                     }
                     else
                     {

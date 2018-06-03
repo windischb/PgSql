@@ -4,11 +4,8 @@ using doob.PgSql.CustomTypes;
 
 namespace doob.PgSql.Interfaces.Where.Typed
 {
-    public interface ITypedWhereClauseLogicalBase<T>
+    public interface ITypedWhereClauseLogical<T>
     {
-        IMergeWhereClause Merge(IWhere query);
-
-        ITypedWhereClauseLogicalAnd<T> Not();
 
         ITypedWhereClauseConnectionBase<T> Eq(string propertyName, object value);
         ITypedWhereClauseConnectionBase<T> Lt(string propertyName, object value);

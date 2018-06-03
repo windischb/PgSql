@@ -10,7 +10,7 @@ using doob.PgSql.Interfaces.Where.Typed;
 
 namespace doob.PgSql.Clauses
 {
-    public class TypedWhereClause<T> : ITypedWhereClauseLogicalBase<T>, ITypedWhereClauseConnectionBase<T>
+    public class TypedWhereClause<T> : ITypedWhereClauseLogicalBase<T>, ITypedWhereClauseConnectionBase<T>, ITypedWhereClauseLogical<T>
     {
 
         private ExpressionBase _first;
@@ -20,10 +20,14 @@ namespace doob.PgSql.Clauses
             return new MergeWhereClause(query);
         }
 
-        public ITypedWhereClauseLogicalBase<T> Not()
+        public ITypedWhereClauseLogicalAnd<T> Not()
         {
             _first = new ExpressionNot();
-            return this;
+            return And();
+            //var andquery = new TypedWhereClauseAnd<T>(_first);
+            //return andquery;
+            //_first = new ExpressionNot();
+            //return this;
         }
 
         public ITypedWhereClauseConnectionBase<T> Eq(string propertyName, object value)

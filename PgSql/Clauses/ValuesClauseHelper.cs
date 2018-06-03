@@ -9,7 +9,7 @@ namespace doob.PgSql.Clauses
             if(parameter.Value == null)
                 return "DEFAULT";
 
-            if (parameter.Column?.Properties.DotNetType == typeof(String))
+            if (parameter.Column?.DotNetType == typeof(String))
             {
                 var str = parameter.Value as string;
                 if (str != null)
@@ -24,16 +24,16 @@ namespace doob.PgSql.Clauses
             if (parameter.Value is string _str && _str == "DEFAULT")
                 return "DEFAULT";
 
-            if (parameter.Column?.Properties.DotNetType == typeof(Guid))
+            if (parameter.Column?.DotNetType == typeof(Guid))
             {
-                if(!String.IsNullOrWhiteSpace(parameter.Column.Properties.DefaultValue))
+                if(!String.IsNullOrWhiteSpace(parameter.Column.DefaultValue))
                     if(parameter.Value.ToString() == Guid.Empty.ToString())
                         return "DEFAULT";
             }
 
-            if (parameter.Column?.Properties.DotNetType == typeof(DateTime))
+            if (parameter.Column?.DotNetType == typeof(DateTime))
             {
-                if (!String.IsNullOrWhiteSpace(parameter.Column.Properties.DefaultValue))
+                if (!String.IsNullOrWhiteSpace(parameter.Column.DefaultValue))
                     if ((DateTime)parameter.Value == default(DateTime))
                         return "DEFAULT";
             }
@@ -41,7 +41,7 @@ namespace doob.PgSql.Clauses
 
             
 
-            if (!String.IsNullOrWhiteSpace(parameter.Column?.Properties.DefaultValue) && parameter.Value == null)
+            if (!String.IsNullOrWhiteSpace(parameter.Column?.DefaultValue) && parameter.Value == null)
                     return "DEFAULT";
 
 

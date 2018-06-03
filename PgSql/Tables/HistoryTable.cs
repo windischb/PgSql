@@ -19,12 +19,12 @@ namespace doob.PgSql.Tables
             td.ClearPrimaryKeys().ClearDefaultValues().ClearUnique();
             td
                 .AddColumn(
-                    Column.Build<Guid>("#id")
+                    ColumnBuilder.Build<Guid>("#id")
                         .DefaultValue("uuid_generate_v1mc()")
                         .AsPrimaryKey()
                         .SetPosition(0))
-                .AddColumn(Column.Build<string>("#action").SetPosition(1))
-                .AddColumn(Column.Build<DateTime>("#timestamp").DefaultValue("current_timestamp").SetPosition(2));
+                .AddColumn(ColumnBuilder.Build<string>("#action").SetPosition(1))
+                .AddColumn(ColumnBuilder.Build<DateTime>("#timestamp").DefaultValue("current_timestamp").SetPosition(2));
                    
             _table = _parent.GetSchema().CreateTable($"{_parent.ConnectionString.TableName}#history", td, false);
             

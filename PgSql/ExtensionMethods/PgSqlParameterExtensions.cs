@@ -35,20 +35,24 @@ namespace doob.PgSql.ExtensionMethods
                 if(findType)
                     if(!Enum.TryParse(param.OverrideType, true, out type))
                     {
-                        type = PgSqlTypeManager.GetNpgsqlDbType(param.Column.Properties.DotNetType);
+                        type = PgSqlTypeManager.GetNpgsqlDbType(param.Column.DotNetType);
                     }
 
+                if (param.Column.DotNetType.IsEnum)
+                {
+                    return new NpgsqlParameter(param.UniqueId, type) { Value = JSON.ToJson(param.Value) };
+                }
 
                 object _value = null;
                 switch (type)
                 {
-                    case NpgsqlDbType.Enum:
-                    {
-                        //TODO: Error: When specifying NpgsqlDbType.Enum, EnumType must be specified as well
-                        type = NpgsqlDbType.Text;
-                        _value = JSON.ToJson(param.Value);
-                        break;
-                    }
+                    //case NpgsqlDbType.Enum:
+                    //{
+                    //    //TODO: Error: When specifying NpgsqlDbType.Enum, EnumType must be specified as well
+                    //    type = NpgsqlDbType.Text;
+                    //    _value = JSON.ToJson(param.Value);
+                    //    break;
+                    //}
                     case NpgsqlDbType.Jsonb:
                     {
                         _value = JSON.ToJson(param.Value);
@@ -80,6 +84,11 @@ namespace doob.PgSql.ExtensionMethods
                         var json = JSON.ToJson(param.Value);
                         _value = JSON.ToObject<List<Guid>>(json);
 
+                        break;
+                    }
+                    case NpgsqlDbType.Uuid:
+                    {
+                        _value = new Guid(param.Value.ToString());
                         break;
                     }
                     default:

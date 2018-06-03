@@ -14,18 +14,18 @@ namespace doob.PgSql.Listener
     {
 
         public IObservable<TriggerNotification> Notifications() => _tableNotificationSubject.AsObservable();
-        
+
 
         public TriggerListener(ConnectionStringBuilder connectionBuilder) : base(connectionBuilder)
         {
-           
+
         }
 
         public TriggerListener ListenOnTablesFqdn(params string[] fqdnTableNames)
         {
             foreach (var tableName in fqdnTableNames)
             {
-                if(!tableName.Contains('.'))
+                if (!tableName.Contains('.'))
                     throw new Exception($"TableName '{tableName}' is not a Full Qualified Name!");
 
                 _listenOnTables.Add(tableName);
@@ -51,7 +51,8 @@ namespace doob.PgSql.Listener
 
         private ListenMode _listenMode;
 
-        public void StartListening(ListenMode listenMode) {
+        public void StartListening(ListenMode listenMode)
+        {
             _listenMode = listenMode;
             if (!_listenOnTables.Any())
             {
@@ -130,14 +131,13 @@ namespace doob.PgSql.Listener
                     returnObject = notifyObject.Data;
                     break;
                 case ListenMode.ReferenceTableEntry:
-                    if (notifyObject.Action == "DELETE")
+                    if (notifyObject.Action == TriggerAction.Delete)
                     {
                         returnObject = notifyObject.Data;
-                    }
-                    else
+                    } else
                     {
                         table = GetTable(notifyObject.Table);
-                        
+
                         returnObject = table.QueryByPrimaryKey(notifyObject.Data).CloneTo<Dictionary<string, object>>();
                     }
                     break;
@@ -151,8 +151,7 @@ namespace doob.PgSql.Listener
             }
 
 
-            var notifyObj = new TriggerNotification()
-            {
+            var notifyObj = new TriggerNotification() {
                 Pid = npgsqlNotificationEventArgs.PID,
                 Condition = npgsqlNotificationEventArgs.Condition,
                 Schema = notifyObject.Schema,
@@ -180,13 +179,11 @@ namespace doob.PgSql.Listener
         public new IObservable<TriggerNotification<T>> Notifications()
         {
 
-            return _tableNotificationSubject.Select(n =>
-            {
+            return _tableNotificationSubject.Select(n => {
                 try
                 {
                     return n.To<T>();
-                }
-                catch (Exception ex)
+                } catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
                 }

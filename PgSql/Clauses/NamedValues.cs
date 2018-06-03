@@ -46,7 +46,7 @@ namespace doob.PgSql.Clauses
             {
                 foreach (var column in tableDefinition.Columns())
                 {
-                    var exists = values.FirstOrDefault(v => v.ColumnName.Equals(column.Properties.Name, StringComparison.OrdinalIgnoreCase));
+                    var exists = values.FirstOrDefault(v => v.ColumnName.Equals(column.Name, StringComparison.OrdinalIgnoreCase));
                     if (exists != null)
                     {
                         exists.Column = column;
@@ -54,7 +54,7 @@ namespace doob.PgSql.Clauses
                     }
                     else
                     {
-                        var defaultExpr = new PgSqlParameter(column.Properties.Name, "DEFAULT");
+                        var defaultExpr = new PgSqlParameter(column.Name, "DEFAULT");
                         defaultExpr.Column = column;
                         sortedValues.Add(defaultExpr);
                     }

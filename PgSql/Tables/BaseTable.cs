@@ -58,6 +58,8 @@ namespace doob.PgSql.Tables
 
             _connectionString = ConnectionString.Build(connectionBuilder);
             _lazyTableDefinition = new Lazy<TableDefinition>(UpdateTableDefinition);
+
+            
         }
 
         public Server GetServer()
@@ -161,14 +163,14 @@ namespace doob.PgSql.Tables
 
         protected Column GetColumn(int position)
         {
-            return TableDefinition.Columns()?.FirstOrDefault(c => c.Properties.Position == position);
+            return TableDefinition.Columns()?.FirstOrDefault(c => c.Position == position);
         }
 
         protected Column GetColumn(string name)
         {
             return
                 TableDefinition.Columns()?.FirstOrDefault(
-                    c => String.Equals(c.Properties.Name, name.Trim("\"".ToCharArray()), StringComparison.CurrentCultureIgnoreCase));
+                    c => String.Equals(c.Name, name.Trim("\"".ToCharArray()), StringComparison.CurrentCultureIgnoreCase));
         }
 
 
@@ -295,6 +297,11 @@ namespace doob.PgSql.Tables
         }
 
 
+        public void ModifyTable()
+        {
+
+        }
+
         #region Query
 
         protected string[] Query(Select select)
@@ -364,7 +371,7 @@ namespace doob.PgSql.Tables
                 if (prNames.Length > 1)
                     throw new Exception("Table has more than one PrimaryKey, please provide a Dictionary with Key/Value");
 
-                var pKeyName = prNames.FirstOrDefault().Properties.Name;
+                var pKeyName = prNames.FirstOrDefault()?.Name;
                 dict.Add(pKeyName, value);
             }
 
@@ -402,21 +409,21 @@ namespace doob.PgSql.Tables
             foreach (var col in TableDefinition.Columns())
             {
 
-                if (!col.Properties.Nullable && !String.IsNullOrWhiteSpace(col.Properties.DefaultValue))
+                if (!col.CanBeNullable && !String.IsNullOrWhiteSpace(col.DefaultValue))
                 {
-                    if (dict.ContainsKey(col.Properties.Name))
+                    if (dict.ContainsKey(col.Name))
                     {
-                        if (dict[col.Properties.Name] == null)
+                        if (dict[col.Name] == null)
                         {
-                            dict.Remove(col.Properties.Name);
+                            dict.Remove(col.Name);
                             continue;
                         }
 
-                        if (dict[col.Properties.Name] is long l)
+                        if (dict[col.Name] is long l)
                         {
                             if (l == 0)
                             {
-                                dict.Remove(col.Properties.Name);
+                                dict.Remove(col.Name);
                                 continue;
                             }
 
@@ -434,7 +441,7 @@ namespace doob.PgSql.Tables
 
             
             if (returnValues == null || !returnValues.Any()) {
-                returnValues = TableDefinition.PrimaryKeys().Select(p => p.Properties.Name).ToList();
+                returnValues = TableDefinition.PrimaryKeys().Select(p => p.Name).ToList();
             }
 
             if(returnValues.Any())
@@ -455,13 +462,13 @@ namespace doob.PgSql.Tables
                 var dict = document.ToDotNetDictionary();
                 foreach (var col in TableDefinition.Columns())
                 {
-                    if (!col.Properties.Nullable && !String.IsNullOrWhiteSpace(col.Properties.DefaultValue))
+                    if (!col.CanBeNullable && !String.IsNullOrWhiteSpace(col.DefaultValue))
                     {
-                        if (dict.ContainsKey(col.Properties.Name))
+                        if (dict.ContainsKey(col.Name))
                         {
-                            if (dict[col.Properties.Name] == null)
+                            if (dict[col.Name] == null)
                             {
-                                dict.Remove(col.Properties.Name);
+                                dict.Remove(col.Name);
                             }
                         }
                     }
@@ -472,7 +479,7 @@ namespace doob.PgSql.Tables
 
             if (returnValues == null || !returnValues.Any())
             {
-                returnValues = TableDefinition.PrimaryKeys().Select(p => p.Properties.Name).ToList();
+                returnValues = TableDefinition.PrimaryKeys().Select(p => p.Name).ToList();
             }
 
             if (returnValues.Any())
@@ -583,19 +590,19 @@ namespace doob.PgSql.Tables
                 foreach (var column in columns) {
                     var dict = JSON.ToDictionary(column, true);
                     var col = new Column();
-                    col.Properties.Name = dict["column_name"].ToString();
-                    col.Properties.Nullable = dict["is_nullable"].CastToBoolean();
-                    col.Properties.DefaultValue = dict["column_default"]?.ToString();
-                    col.Properties.Position = dict["ordinal_position"].ToInt() -1;
-                    col.Properties.PrimaryKey = dict["isprimarykey"].CastToBoolean();
-                    col.Properties.Unique = dict["isunique"].CastToBoolean();
+                    col.Name = dict["column_name"].ToString();
+                    col.CanBeNullable = dict["is_nullable"].CastToBoolean();
+                    col.DefaultValue = dict["column_default"]?.ToString();
+                    col.Position = dict["ordinal_position"].ToInt() -1;
+                    col.IsPrimaryKey = dict["isprimarykey"].CastToBoolean();
+                    col.MustBeUnique = dict["isunique"].CastToBoolean();
 
                     var dbType = dict["udt_name"].ToString().Trim();
                     var dataType = dict["data_type"].ToString();
                     if (dataType.Equals("ARRAY"))
                         dbType = $"{dbType}[]";
 
-                    col.Properties.DotNetType = PgSqlTypeManager.GetDotNetType(dbType);
+                    col.DotNetType = PgSqlTypeManager.GetDotNetType(dataType, false) ?? PgSqlTypeManager.GetDotNetType(dbType);
                     schema.Add(col);
                 }
             }

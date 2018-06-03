@@ -38,7 +38,7 @@ namespace doob.PgSql
             return this;
         }
 
-        internal PgSqlParameter SetColum(Column column)
+        internal PgSqlParameter SetColum(ColumnBuilder column)
         {
 
             Column = column;

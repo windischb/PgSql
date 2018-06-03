@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netcoreapp2.0;net461</TargetFrameworks>
@@ -12,13 +12,17 @@
     <Company>-</Company>
     <RepositoryUrl>https://github.com/windischb/PgSql</RepositoryUrl>
     <PackageProjectUrl>https://github.com/windischb/PgSql</PackageProjectUrl>
+    <Version>2.0.3</Version>
   </PropertyGroup>
 
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
-    <PackageReference Include="Npgsql" Version="3.2.5" />
-    <PackageReference Include="System.Reactive.Linq" Version="3.1.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2">
+    </PackageReference>
+    <PackageReference Include="Npgsql" Version="4.0.0">
+    </PackageReference>
+    <PackageReference Include="System.Reactive.Linq" Version="4.0.0">
+    </PackageReference>
   </ItemGroup>
 
 </Project>
