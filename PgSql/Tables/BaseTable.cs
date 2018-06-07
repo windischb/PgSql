@@ -602,7 +602,7 @@ namespace doob.PgSql.Tables
                     if (dataType.Equals("ARRAY"))
                         dbType = $"{dbType}[]";
 
-                    col.DotNetType = PgSqlTypeManager.GetDotNetType(dataType, false) ?? PgSqlTypeManager.GetDotNetType(dbType);
+                    col.DotNetType = PgSqlTypeManager.GetDotNetType(dbType);
                     schema.Add(col);
                 }
             }

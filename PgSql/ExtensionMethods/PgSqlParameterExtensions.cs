@@ -38,21 +38,18 @@ namespace doob.PgSql.ExtensionMethods
                         type = PgSqlTypeManager.GetNpgsqlDbType(param.Column.DotNetType);
                     }
 
-                if (param.Column.DotNetType.IsEnum)
-                {
-                    return new NpgsqlParameter(param.UniqueId, type) { Value = JSON.ToJson(param.Value) };
-                }
+                
 
                 object _value = null;
                 switch (type)
                 {
-                    //case NpgsqlDbType.Enum:
-                    //{
-                    //    //TODO: Error: When specifying NpgsqlDbType.Enum, EnumType must be specified as well
-                    //    type = NpgsqlDbType.Text;
-                    //    _value = JSON.ToJson(param.Value);
-                    //    break;
-                    //}
+                    case NpgsqlDbType.Enum:
+                    {
+                        //TODO: Error: When specifying NpgsqlDbType.Enum, EnumType must be specified as well
+                        type = NpgsqlDbType.Text;
+                        _value = JSON.ToJson(param.Value);
+                        break;
+                    }
                     case NpgsqlDbType.Jsonb:
                     {
                         _value = JSON.ToJson(param.Value);

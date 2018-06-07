@@ -1,7 +1,6 @@
 using System.Linq;
 using doob.PgSql;
 using doob.PgSql.Clauses;
-using Npgsql.TypeMapping;
 using Xunit;
 
 namespace PgSql.Tests
