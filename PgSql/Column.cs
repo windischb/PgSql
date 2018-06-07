@@ -6,76 +6,109 @@ using Newtonsoft.Json;
 
 namespace doob.PgSql
 {
-    public class Column
+    public class ColumnBuilder
     {
-        public ColumnProperties Properties { get; set; } = new ColumnProperties();
+        public Column Column;
+
+        public ColumnBuilder() : this(new Column())
+        {
+           
+        }
+
+        internal ColumnBuilder(Column column)
+        {
+            Column = column;
+        }
 
         private int _currentTablePosition { get; set; }
 
-        public Column SetPosition(int? position)
+        public ColumnBuilder SetPosition(int? position)
         {
-            Properties.Position = position;
+            Column.Position = position;
             return this;
         }
 
-        public Column SetName(string name)
+        public ColumnBuilder SetName(string name)
         {
-            Properties.Name = name;
+            Column.Name = name;
+            return this;
+        }
+        public ColumnBuilder SetAlias(string alias)
+        {
+            Column.Alias = alias;
             return this;
         }
 
-        public Column CanBeNull()
+
+        public ColumnBuilder CanBeNull()
         {
             return Nullable(true) ;
         }
-        public Column CanNotBeNull() {
+        public ColumnBuilder CanNotBeNull() {
             return Nullable(false);
         }
-        public Column Nullable(bool value)
+        public ColumnBuilder Nullable(bool value)
         {
-            Properties.Nullable = value;
+            Column.CanBeNullable = value;
             return this;
         }
 
-        public Column MustBeUnique()
+        public ColumnBuilder MustBeUnique()
         {
             return MustBeUnique(true);
         }
-        public Column MustBeUnique(bool value)
+        public ColumnBuilder MustBeUnique(bool value)
         {
-            Properties.Unique = true;
+            Column.MustBeUnique = true;
             return this;
         }
 
-        public Column AsPrimaryKey()
+        public ColumnBuilder AsPrimaryKey()
         {
             return AsPrimaryKey(true);
         }
-        public Column AsPrimaryKey(bool value)
+        public ColumnBuilder AsPrimaryKey(bool value)
         {
-            Properties.PrimaryKey = value;
+            Column.IsPrimaryKey = value;
             return this;
         }
 
-        public Column DefaultValue(string value)
+        public ColumnBuilder DefaultValue(string value)
         {
-            Properties.DefaultValue = value;
+            Column.DefaultValue = value;
             return this;
         }
 
-        
-        public static Column Build(string name, Type dotnetType)
+
+        public ColumnBuilder SetCustomDbType(string value)
+        {
+            Column.CustomDbType = value;
+            return this;
+        }
+
+        internal ColumnBuilder SetTablePosition(int position)
+        {
+            _currentTablePosition = position;
+            return this;
+        }
+        internal int GetTablePosition()
+        {
+            return _currentTablePosition;
+        }
+
+     
+        public static ColumnBuilder Build(string name, Type dotnetType)
         {
             if (String.IsNullOrWhiteSpace(name))
                 throw new ArgumentNullException(nameof(name));
 
             name = name.ClearString();
-            var col = new Column().SetName(name);
+            var col = new ColumnBuilder().SetName(name);
 
-            col.Properties.DotNetType = dotnetType ?? throw new ArgumentNullException(nameof(dotnetType));
+            col.Column.DotNetType = dotnetType ?? throw new ArgumentNullException(nameof(dotnetType));
             return col;
         }
-        public static Column Build(string name, string typeName)
+        public static ColumnBuilder Build(string name, string typeName)
         {
             Type type = null;
             string tName = typeName;
@@ -106,42 +139,63 @@ namespace doob.PgSql
             var col = Build(name, type);
             return col;
         }
-        public static Column Build<T>(string name) {
+        public static ColumnBuilder Build<T>(string name) {
             return Build(name, typeof(T));
         }
 
-        internal Column SetTablePosition(int position)
+
+
+       
+        public static implicit operator Column(ColumnBuilder builder)
         {
-            _currentTablePosition = position;
-            return this;
-        }
-        internal int GetTablePosition()
-        {
-            return _currentTablePosition;
+            return builder.Column;
         }
     }
 
-    public class ColumnProperties {
+    public class Column {
 
         [JsonProperty]
         public int? Position { get; internal set; }
-
         [JsonProperty]
         public string Name { get; internal set; }
         [JsonProperty]
         public string Alias { get; internal set; }
         [JsonProperty]
-        public bool Nullable { get; internal set; } = true;
+        public bool CanBeNullable { get; internal set; } = true;
         [JsonProperty]
-        public bool Unique { get; internal set; }
+        public bool MustBeUnique { get; internal set; }
         [JsonProperty]
-        public bool PrimaryKey { get; internal set; }
+        public bool IsPrimaryKey { get; internal set; }
         [JsonProperty]
         public string DefaultValue { get; internal set; }
         [JsonProperty]
         public string CustomDbType { get; set; }
+
         [JsonProperty]
         public Type DotNetType { get; internal set; }
+
+
+
+        public ColumnBuilder Builder()
+        {
+            return new ColumnBuilder(this);
+        }
+
+
+        public static ColumnBuilder Build(string name, Type dotnetType)
+        {
+            return ColumnBuilder.Build(name, dotnetType);
+        }
+        public static ColumnBuilder Build(string name, string typeName)
+        {
+            return ColumnBuilder.Build(name, typeName);
+        }
+        public static ColumnBuilder Build<T>(string name)
+        {
+            return ColumnBuilder.Build<T>(name);
+        }
+
+
 
     }
 }

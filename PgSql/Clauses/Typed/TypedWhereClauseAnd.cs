@@ -222,7 +222,7 @@ namespace doob.PgSql.Clauses.Typed
                     continue;
                 }
 
-                Column column = null;
+                ColumnBuilder column = null;
                 if (xpression.ColumnName != null)
                 {
                     column = tableDefinition.GetColumn(xpression.ColumnName);
@@ -233,6 +233,12 @@ namespace doob.PgSql.Clauses.Typed
 
                 comm.Parameters.ForEach(p =>
                 {
+
+                    if (p.Value.GetType().IsEnum)
+                    {
+                        p.Value = p.Value.ToString();
+                    }
+
                     if (command.ParameterIdExists(p.UniqueId))
                     {
                         var newParam = p.RebuildWithNewId();

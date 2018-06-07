@@ -38,7 +38,7 @@ namespace doob.PgSql.Expressions.Logical
             string searchstr = string.Empty;
             string comm = String.Empty;
 
-            var jTokenType = column?.Properties?.DotNetType?.GetJTokenType();
+            var jTokenType = column?.DotNetType?.GetJTokenType();
             switch (jTokenType)
             {
                 case JTokenType.Array when jTokenType == JTokenType.Object:

@@ -137,7 +137,7 @@ namespace doob.PgSql.Clauses.NotTyped
                 }
 
 
-                Column column = null;
+                ColumnBuilder column = null;
                 if(tableDefinition != null)
                     if (xpression.ColumnName != null)
                     {

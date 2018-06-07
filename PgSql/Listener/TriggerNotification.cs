@@ -5,21 +5,16 @@ using doob.PgSql.ExtensionMethods;
 namespace doob.PgSql.Listener
 {
 
-  
-    public class TriggerNotification<T> : EventArgs
+
+    public class TriggerNotification : EventArgs
     {
         public int Pid { get; set; }
         public string Condition { get; set; }
         public string Schema { get; set; }
         public string Table { get; set; }
-        public string Action { get; set; }
-        public T EventData { get; set; }
+        public TriggerAction Action { get; set; }
+        public object EventData { get; set; }
 
-        
-    }
-
-    public class TriggerNotification : TriggerNotification<Dictionary<string, object>>
-    {
         public TriggerNotification<T> To<T>()
         {
             var notify = new TriggerNotification<T>();
@@ -28,9 +23,24 @@ namespace doob.PgSql.Listener
             notify.Table = Table;
             notify.Action = Action;
             notify.Schema = Schema;
-            notify.EventData = EventData.CloneTo<T>(); // JSON.ToObject<T>(JSON.ToJson(EventData));
+
+            notify.EventData = EventData.CloneTo<T>();
             return notify;
         }
+    }
+
+    public class TriggerNotification<T> : TriggerNotification
+    {
+        public new T EventData { get; set; }
+
+
+    }
+
+    public enum TriggerAction
+    {
+        Insert,
+        Update,
+        Delete
     }
 
 }

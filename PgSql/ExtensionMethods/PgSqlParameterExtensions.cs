@@ -35,9 +35,10 @@ namespace doob.PgSql.ExtensionMethods
                 if(findType)
                     if(!Enum.TryParse(param.OverrideType, true, out type))
                     {
-                        type = PgSqlTypeManager.GetNpgsqlDbType(param.Column.Properties.DotNetType);
+                        type = PgSqlTypeManager.GetNpgsqlDbType(param.Column.DotNetType);
                     }
 
+                
 
                 object _value = null;
                 switch (type)
@@ -80,6 +81,11 @@ namespace doob.PgSql.ExtensionMethods
                         var json = JSON.ToJson(param.Value);
                         _value = JSON.ToObject<List<Guid>>(json);
 
+                        break;
+                    }
+                    case NpgsqlDbType.Uuid:
+                    {
+                        _value = new Guid(param.Value.ToString());
                         break;
                     }
                     default:

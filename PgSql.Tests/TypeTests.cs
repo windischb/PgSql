@@ -23,6 +23,7 @@ namespace PgSql.Tests
         public void Test1() {
 
             
+            
             var tbd = TableDefinition.FromType<TypeTestModel>();
 
             var table = GetSchema().CreateTable("Test1", tbd);
@@ -32,10 +33,13 @@ namespace PgSql.Tests
             var statement = doob.PgSql.Statements.Insert.Into("TestTable")
                 .AddColumnsFromTableDefinition(tbd)
                 .AddValuesFromObject(model)
-                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.Properties.Name).ToArray()));
+                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.Name).ToArray()));
 
             var sql = statement.GetSqlCommand(tbd);
 
+
+
+           
             
 
             table.Insert(model);
@@ -54,7 +58,7 @@ namespace PgSql.Tests
             var statement = doob.PgSql.Statements.Insert.Into("TestTable")
                 .AddColumnsFromTableDefinition(tbd)
                 .AddValuesFromObject(model)
-                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.Properties.Name).ToArray()));
+                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.Name).ToArray()));
 
             var sql = statement.GetSqlCommand(tbd);
 

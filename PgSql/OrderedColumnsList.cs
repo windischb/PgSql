@@ -13,16 +13,16 @@ namespace doob.PgSql
         public void Add(Column column)
         {
 
-            if (!column.Properties.Position.HasValue)
+            if (!column.Position.HasValue)
             {
                 Columns.Add(column);
             }
             else
             {
-                Columns.Insert(column.Properties.Position.Value, column);
+                Columns.Insert(column.Position.Value, column);
                 for (int i = 0; i < Columns.Count; i++)
                 {
-                    Columns[i].Properties.Position = i;
+                    Columns[i].Position = i;
                 }
                 ReorderList();
             }
@@ -41,16 +41,16 @@ namespace doob.PgSql
 
             foreach (var col in Columns)
             {
-                if (!col.Properties.Position.HasValue)
+                if (!col.Position.HasValue)
                 {
                     newList.Add(col);
                 }
                 else
                 {
-                    newList.Insert(col.Properties.Position.Value, col);
+                    newList.Insert(col.Position.Value, col);
                     for (int i = 0; i < newList.Count; i++)
                     {
-                        newList[i].Properties.Position = i;
+                        newList[i].Position = i;
                     }
                 }
 

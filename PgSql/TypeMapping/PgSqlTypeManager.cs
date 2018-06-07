@@ -204,7 +204,8 @@ namespace doob.PgSql.TypeMapping
         }
 
 
-        public static NpgsqlDbType GetNpgsqlDbType(Type dotnetType) {
+        public static NpgsqlDbType GetNpgsqlDbType(Type dotnetType)
+        {
             if (dotnetType == null)
                 return NpgsqlDbType.Unknown;
 
@@ -355,17 +356,17 @@ namespace doob.PgSql.TypeMapping
             switch (type)
             {
                 case NpgsqlDbType.Uuid:
-                    {
-                        return jToken.ToObject<Guid>();
-                    }
+                {
+                    return jToken.ToObject<Guid>();
+                }
                 case NpgsqlDbType.Bytea:
-                    {
-                        return @object;
-                    }
+                {
+                    return @object;
+                }
                 default:
-                    {
-                        return @object;
-                    }
+                {
+                    return @object;
+                }
             }
         }
 

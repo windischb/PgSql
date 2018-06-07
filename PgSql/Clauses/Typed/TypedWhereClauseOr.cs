@@ -217,7 +217,7 @@ namespace doob.PgSql.Clauses.Typed
                     continue;
                 }
 
-                Column column = null;
+                ColumnBuilder column = null;
                 if (xpression.ColumnName != null)
                 {
                     column = tableDefinition.GetColumn(xpression.ColumnName);

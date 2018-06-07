@@ -31,27 +31,28 @@ namespace doob.PgSql.ExtensionMethods
             var strBuilder = new StringBuilder();
             tblDefinition.Columns().ToList().ForEach(c =>
             {
-                var typ = c.Properties.CustomDbType ?? PgSqlTypeManager.GetPostgresName(c.Properties.DotNetType);
+                
+                var typ = c.CustomDbType ?? PgSqlTypeManager.GetPostgresName(c.DotNetType);
 
-                var str = $"\"{c.Properties.Name}\" {typ}".Trim();
-                if (!String.IsNullOrWhiteSpace(c.Properties.DefaultValue))
+                var str = $"\"{c.Name}\" {typ}".Trim();
+                if (!String.IsNullOrWhiteSpace(c.DefaultValue))
                 {
-                    if (c.Properties.DefaultValue.ToLower() == "bigserial")
+                    if (c.DefaultValue.ToLower() == "bigserial")
                     {
                         str = $"{str.TrimEnd(typ.ToCharArray())} BIGSERIAL";
                     }
                     else
                     {
-                        str = $"{str} DEFAULT {c.Properties.DefaultValue}".Trim();
+                        str = $"{str} DEFAULT {c.DefaultValue}".Trim();
                     }
 
                 }
 
 
-                if (c.Properties.Unique)
+                if (c.MustBeUnique)
                     str = $"{str} UNIQUE".Trim();
 
-                if (!c.Properties.Nullable || c.Properties.PrimaryKey)
+                if (!c.CanBeNullable || c.IsPrimaryKey)
                     str = $"{str} NOT NULL".Trim();
 
                 strBuilder.AppendLine($"    {str},");
@@ -59,7 +60,7 @@ namespace doob.PgSql.ExtensionMethods
 
             if (tblDefinition.PrimaryKeys() != null)
             {
-                var keys = String.Join(", ", tblDefinition.PrimaryKeys().Select(p => $"\"{p.Properties.Name}\""));
+                var keys = String.Join(", ", tblDefinition.PrimaryKeys().Select(p => $"\"{p.Name}\""));
                 strBuilder.AppendLine($"    PRIMARY KEY ({keys})");
             }
 
