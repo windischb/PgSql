@@ -40,7 +40,9 @@ namespace doob.PgSql.Listener
     {
         Insert,
         Update,
-        Delete
+        Delete,
+        DeletedInsert,
+        DeletedUpdate
     }
 
 }

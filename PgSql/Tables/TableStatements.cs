@@ -4,7 +4,7 @@ namespace doob.PgSql.Tables
 {
     internal static class TableStatements
     {
-        public static string BuildTriggerFunction_ByReferenceKeys(string schemaName, string functionName, ListenMode mode)
+        public static string BuildTriggerFunction(string schemaName, string functionName)
         {
             if (String.IsNullOrWhiteSpace(schemaName))
                 throw new ArgumentNullException(nameof(schemaName));
@@ -48,7 +48,6 @@ CREATE OR REPLACE FUNCTION ""{schemaName}"".""{functionName}""() RETURNS TRIGGER
 	    END IF;
 
         notification = json_build_object(
-            'mode', '{mode}',
             'schema', TG_TABLE_SCHEMA,
             'table', TG_TABLE_NAME,
             'action', TG_OP,
@@ -65,66 +64,43 @@ $$ LANGUAGE plpgsql;
 
         }
 
-        public static string BuildTriggerFunction_ByHistoryKeys(string schemaName, string functionName, ListenMode mode)
+        public static string AddHistoryTrigger(Schema schema)
         {
-            if (String.IsNullOrWhiteSpace(schemaName))
-                throw new ArgumentNullException(nameof(schemaName));
 
-            if (String.IsNullOrWhiteSpace(functionName))
-                throw new ArgumentNullException(nameof(functionName));
+            if (schema == null)
+                throw new ArgumentNullException(nameof(schema));
 
 
             return $@"
-CREATE OR REPLACE FUNCTION ""{schemaName}"".""{functionName}""() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION ""{schema.ConnectionString.SchemaName}"".""WriteHistory""() RETURNS TRIGGER AS $$
 
     DECLARE
 
+        history_schema_name text;
         history_schema_table_name text;
-        history_table_name text;
         insert_query text;
-        history_table_columns text;
-        primarykeys text[];
-        return_object json;
-        cid uuid;
-        notification json;
-        
+
     BEGIN
 
-        history_table_name:= '""' || TG_TABLE_NAME || '#history""';
-        history_schema_table_name:='""' ||  TG_TABLE_SCHEMA || '"".' || history_table_name;
-        history_table_columns:= (SELECT array_to_string(array(SELECT '""' || column_name::text || '""' FROM information_schema.columns WHERE table_schema = TG_TABLE_SCHEMA AND table_name = TG_TABLE_NAME || '#history'), ','));
+        history_schema_name:= '""' || TG_TABLE_SCHEMA || '#history""';
+        history_schema_table_name:= history_schema_name || '.""' ||  TG_TABLE_NAME || '""';
 
-
-        primarykeys:= ARRAY((SELECT '""' || a.attname || '""' FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE  i.indrelid = history_schema_table_name::regclass AND i.indisprimary));
-
-        insert_query := 'INSERT INTO ' || history_schema_table_name || ' (' || history_table_columns || ') VALUES (DEFAULT,''' || TG_OP || ''',DEFAULT,$1.*) RETURNING ""#id""';
+        insert_query := 'INSERT INTO ' || history_schema_table_name || ' (""Id"",""Action"",""Old"",""New"",""Timestamp"") VALUES (DEFAULT,''' || TG_OP || ''',to_jsonb($1),to_jsonb($2),DEFAULT)';
 
         IF(TG_OP = 'INSERT') THEN
-            EXECUTE insert_query USING NEW INTO cid;
+            EXECUTE insert_query USING NULL,NEW;
         END IF;
 
         IF(TG_OP = 'DELETE') THEN
-            EXECUTE insert_query USING OLD INTO cid;
+            EXECUTE insert_query USING OLD,NULL;
         END IF;
 
         IF(TG_OP = 'UPDATE') THEN
-            EXECUTE insert_query USING NEW INTO cid;
+            EXECUTE insert_query USING OLD,NEW;
             IF(OLD = NEW) THEN
                 RETURN NULL;
             END IF;
         END IF;
-
-        return_object:=(SELECT json_build_object('#id',cid));
-
-
-        notification= json_build_object(
-            'mode', '{mode}',
-            'schema', TG_TABLE_SCHEMA,
-            'table', TG_TABLE_NAME,
-            'action', TG_OP,
-            'data', return_object);
-
-        PERFORM pg_notify('{functionName}', notification::text);
 
         RETURN NEW;
 
@@ -133,6 +109,10 @@ $$ LANGUAGE plpgsql;
 ";
 
         }
+
+
+
+       
 
     }
 }

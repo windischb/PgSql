@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using doob.PgSql.TypeMapping;
+using Newtonsoft.Json.Linq;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -24,20 +25,39 @@ namespace doob.PgSql.ExtensionMethods
                 NpgsqlDbType type = NpgsqlDbType.Text;
                 bool findType = true;
 
-                var typeInfo = param.Value.GetType().GetTypeInfo();
-                if (typeInfo.IsEnum)
+
+                if (param.Column?.DotNetType?.IsEnum == true)
                 {
-                    type = NpgsqlDbType.Text;
-                    findType = false;
+                    switch (param.Value)
+                    {
+                        case int i:
+                        {
+                            var val = (Enum) Enum.ToObject(param.Column.DotNetType, i);
+                            return new NpgsqlParameter(param.UniqueId, type) {Value = val.GetName()};
+                        }
+                    }
                 }
+
+                //var typeInfo = param.Value.GetType().GetTypeInfo();
+                //if (typeInfo.IsEnum)
+                //{
+                //    type = NpgsqlDbType.Text;
+                //    findType = false;
+                //}
                     
 
                 if(findType)
                     if(!Enum.TryParse(param.OverrideType, true, out type))
                     {
-                        type = PgSqlTypeManager.GetNpgsqlDbType(param.Column.DotNetType);
+                        type = param.Column.GetNpgSqlDbType();// PgSqlTypeManager.GetNpgsqlDbType(param.Column.DotNetType);
                     }
 
+                if (type == NpgsqlDbType.Json || type == NpgsqlDbType.Jsonb)
+                {
+                    var valueType = PgSqlTypeManager.GetNpgsqlDbType(param.Value.GetType());
+                    if(valueType != NpgsqlDbType.Json && valueType != NpgsqlDbType.Jsonb)
+                        type = NpgsqlDbType.Text; //PgSqlTypeManager.GetNpgsqlDbType(param.Value.GetType());
+                }
                 
 
                 object _value = null;

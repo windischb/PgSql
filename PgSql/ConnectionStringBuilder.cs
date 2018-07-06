@@ -67,6 +67,12 @@ namespace doob.PgSql
             return this;
         }
 
+        public ConnectionStringBuilder WithApplicationName(string name)
+        {
+            _connectionstring.ApplicationName = name;
+            return this;
+        }
+
         //public ConnectionBuilder WithTableHistoryEnabled(bool enable = true)
         //{
         //    _connectionstring.EnableTableHistory = enable;

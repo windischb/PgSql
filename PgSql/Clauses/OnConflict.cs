@@ -51,7 +51,7 @@ namespace doob.PgSql.Clauses
                 return sqlCommand;
             }
 
-            sqlCommand.AppendCommandLine($" ({String.Join(", ", tableDefinition.PrimaryKeys().Select(c => c.Name))})");
+            sqlCommand.AppendCommandLine($" ({String.Join(", ", tableDefinition.PrimaryKeys().Select(c => c.DbName))})");
 
             sqlCommand.AppendCommandLine(" DO UPDATE SET");
 

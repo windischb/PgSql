@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Logging;
+using Newtonsoft.Json.Linq;
 using Npgsql;
 
 namespace doob.PgSql
@@ -135,7 +136,7 @@ namespace doob.PgSql
         {
             return ExecuteReader(sqlStatement).Select(JSON.ToObject<T>);
         }
-        public IEnumerable<string> ExecuteReader(string sqlStatement)
+        public IEnumerable<JObject> ExecuteReader(string sqlStatement)
         {
             var sqlCommand = new PgSqlCommand();
             sqlCommand.AppendCommand(sqlStatement);
@@ -147,7 +148,7 @@ namespace doob.PgSql
         {
             return ExecuteReader(sqlCommand).Select(JSON.ToObject<T>);
         }
-        public IEnumerable<string> ExecuteReader(PgSqlCommand sqlCommand)
+        public IEnumerable<JObject> ExecuteReader(PgSqlCommand sqlCommand)
         {
             Logger.Debug(() =>
             {
@@ -158,9 +159,8 @@ namespace doob.PgSql
             {
                 lock (_lock)
                 {
-                    List<string> items = new List<string>();
+                    List<JObject> items = new List<JObject>();
 
-                    //Console.WriteLine($"##### - {sqlCommand.CommandAsPlainText()}");
                     var command = PrepareCommand(sqlCommand.Command);
 
 
@@ -175,11 +175,11 @@ namespace doob.PgSql
                         var columns = reader.GetColumnSchema();
                         while (reader.Read())
                         {
-                            var item = new Dictionary<string, object>();
+                            var jo = new JObject();
                             for (int i = 0; i < reader.FieldCount; i++) {
-                                item[columns[i].ColumnName] = DbExecuterHelper.ConvertFromDB(reader[i], columns[i]);
+                                jo.Add(columns[i].ColumnName, DbExecuterHelper.ConvertFromDB(reader[i], columns[i]));
                             }
-                            items.Add(JSON.ToJson(item));
+                            items.Add(jo);
                         }
                     }
                     EndCommand(command);
@@ -189,6 +189,7 @@ namespace doob.PgSql
             }
             catch (Exception e)
             {
+                Console.WriteLine(sqlCommand.CommandAsPlainText());
                 Logger.Error(e, "ExecuteReader", sqlCommand.CommandAsPlainText());
                 throw;
             }
@@ -215,7 +216,6 @@ namespace doob.PgSql
         public TOut ExecuteScalar<TOut>(PgSqlCommand sqlCommand)
         {
 
-
             Logger.Debug(() =>
             {
                 return $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandAsPlainText()}";
@@ -233,15 +233,16 @@ namespace doob.PgSql
                         command.Parameters.Add(npgsqlParameter.ToNpgsqlParameter());
                     }
 
-                    ret = (TOut) command.ExecuteScalar();
+                    ret = command.ExecuteScalar().CloneTo<TOut>();
 
                     EndCommand(command);
                 }
             }
             catch (Exception e)
             {
-                Logger.ErrorFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{command}}", sqlCommand.CommandAsPlainText());
-                Logger.ErrorFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{e}}", e);
+                Logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{command}}", sqlCommand.CommandAsPlainText());
+                Logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{e}}", e);
+                throw;
             }
             return ret;
         }

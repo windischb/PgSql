@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using doob.PgSql.CustomTypes;
 using doob.PgSql.Exceptions;
 using doob.PgSql.ExtensionMethods;
+using doob.PgSql.Listener;
 using doob.PgSql.Tables;
 using Npgsql;
 
@@ -57,6 +59,27 @@ namespace doob.PgSql
         public Schema EnsureExists()
         {
             GetDatabase().SchemaExists(ConnectionString.SchemaName, true, false);
+            return this;
+        }
+
+        public Schema WaitForExists(int checkIntervalInSeconds = 10)
+        {
+            return WaitForExists(TimeSpan.FromSeconds(checkIntervalInSeconds));
+        }
+
+        public Schema WaitForExists(TimeSpan checkInterval)
+        {
+
+            bool exists = false;
+            do
+            {
+                exists = GetDatabase().EnsureExists().SchemaExists(ConnectionString.SchemaName, false, false);
+
+                if (!exists)
+                    Task.Delay(checkInterval).GetAwaiter().GetResult();
+
+            } while (!exists);
+            
             return this;
         }
         public Schema EnsureNotExists()
@@ -163,11 +186,8 @@ namespace doob.PgSql
         }
 
 
-        public void TableDrop(string tableName)
-        {
-            TableDrop(tableName, false);
-        }
-        public void TableDrop(string tableName, bool throwIfNotExists)
+       
+        public Schema TableDrop(string tableName, bool throwIfNotExists = false)
         {
             if (String.IsNullOrWhiteSpace(tableName))
                 throw new ArgumentNullException(nameof(tableName));
@@ -181,6 +201,7 @@ namespace doob.PgSql
                 throw new TableDoesntExistsException(tableName);
             }
 
+            return this;
         }
 
         private object _createTable(string tableName, TableDefinition definition, bool throwIfAlreadyExists)
@@ -262,7 +283,20 @@ namespace doob.PgSql
         }
 
 
+        //public TableEventListener GetEventListener(bool forceNewInstance = false)
+        //{
+        //    return TableEventListener.GetEventLister(this, forceNewInstance);
+        //}
 
+        //public IObservable<TriggerNotification<T>> GetTypedEntryNotificationFor<T>(TypedTable<T> table, bool forceNewInstance = false)
+        //{
+        //    return TableEventListener.GetEventLister(this, forceNewInstance).TypedEntryOnEvent(table);
+        //}
+
+        //public IObservable<TriggerNotification<T>> GetTypedKeysNotificationFor<T>(TypedTable<T> table, bool forceNewInstance = false)
+        //{
+        //    return TableEventListener.GetEventLister(this, forceNewInstance).TypedKeysOnEvent(table);
+        //}
 
 
         #region Function
@@ -275,109 +309,128 @@ namespace doob.PgSql
 
         #endregion
 
-        #region Triggers
+        
 
-        public bool EventTriggerExists(string triggerName)
-        {
-            var command = $"SELECT EXISTS(select 1 from pg_event_trigger where evtname = '{triggerName}');";
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(command);
-        }
+//        public bool EventTriggerExists(string triggerName)
+//        {
+//            var command = $"SELECT EXISTS(select 1 from pg_event_trigger where evtname = '{triggerName}');";
+//            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(command);
+//        }
 
-        public void EventTriggerDrop(string triggerName, bool force)
-        {
-            var command = $"DROP EVENT TRIGGER IF EXISTS \"{triggerName}\"";
+//        public void EventTriggerDrop(string triggerName, bool force)
+//        {
+//            var command = $"DROP EVENT TRIGGER IF EXISTS \"{triggerName}\"";
 
-            if (force)
-                command = $"{command} CASCADE";
+//            if (force)
+//                command = $"{command} CASCADE";
 
-            new DbExecuter(ConnectionString).ExecuteNonQuery(command);
-        }
+//            new DbExecuter(ConnectionString).ExecuteNonQuery(command);
+//        }
 
-        public void RegisterEventTrigger(bool overwriteIfExists = false)
-        {
-            var functionName = $"XA-Notify-SchemaEvent";
+//        public void RegisterEventTrigger(bool overwriteIfExists = false)
+//        {
+//            var functionName = $"XA-Notify-SchemaEvent";
 
-            if (!FunctionExists(functionName) || overwriteIfExists)
-            {
-                var function1 = $@"
-CREATE OR REPLACE FUNCTION ""{ConnectionString.SchemaName}"".""{functionName}""() RETURNS event_trigger AS $$
-DECLARE
-    r RECORD;
-    notification json;
-    type text;
-BEGIN
+//            if (!FunctionExists(functionName) || overwriteIfExists)
+//            {
+//                var function1 = $@"
+//CREATE OR REPLACE FUNCTION ""{ConnectionString.SchemaName}"".""{functionName}""() RETURNS event_trigger AS $$
+//DECLARE
+//    r RECORD;
+//    notification json;
+//    type text;
+//BEGIN
     
-    FOR r IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
+//    FOR r IN SELECT * FROM pg_event_trigger_ddl_commands() LOOP
 
-            notification= json_build_object(
-                'action', upper(r.command_tag),
-                'schema', r.schema_name,
-                'identity', r.object_identity,
-                'type', upper(r.object_type)
-            );
+//            notification= json_build_object(
+//                'action', upper(r.command_tag),
+//                'schema', r.schema_name,
+//                'identity', r.object_identity,
+//                'type', upper(r.object_type)
+//            );
 
-            PERFORM pg_notify('{functionName}', notification::text);
+//            PERFORM pg_notify('{functionName}', notification::text);
 
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql;
-";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(function1);
-            }
+//    END LOOP;
+//END;
+//$$ LANGUAGE plpgsql;
+//";
+//                new DbExecuter(ConnectionString).ExecuteNonQuery(function1);
+//            }
 
-            if (!FunctionExists($"{functionName}_dropped") || overwriteIfExists)
-            {
-                var function2 = $@"
-CREATE OR REPLACE FUNCTION ""{ConnectionString.SchemaName}"".""{functionName}_dropped""() RETURNS event_trigger AS $$
-DECLARE
-    r RECORD;
-    notification json;
-    action text;
-BEGIN
-    FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP
+//            if (!FunctionExists($"{functionName}_dropped") || overwriteIfExists)
+//            {
+//                var function2 = $@"
+//CREATE OR REPLACE FUNCTION ""{ConnectionString.SchemaName}"".""{functionName}_dropped""() RETURNS event_trigger AS $$
+//DECLARE
+//    r RECORD;
+//    notification json;
+//    action text;
+//BEGIN
+//    FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP
 
-            notification= json_build_object(
-                'action', 'DROP ' || upper(r.object_type),
-                'schema', r.schema_name,
-                'identity', r.object_identity,
-                'type', upper(r.object_type)
-            );
+//            notification= json_build_object(
+//                'action', 'DROP ' || upper(r.object_type),
+//                'schema', r.schema_name,
+//                'identity', r.object_identity,
+//                'type', upper(r.object_type)
+//            );
 
-            PERFORM pg_notify('{functionName}', notification::text);
+//            PERFORM pg_notify('{functionName}', notification::text);
 
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql;
-";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(function2);
+//    END LOOP;
+//END;
+//$$ LANGUAGE plpgsql;
+//";
+//                new DbExecuter(ConnectionString).ExecuteNonQuery(function2);
 
-            }
+//            }
 
-            var trigger1Exists = EventTriggerExists($"{functionName}_Trigger::{ConnectionString.SchemaName}");
+//            var trigger1Exists = EventTriggerExists($"{functionName}_Trigger::{ConnectionString.SchemaName}");
 
-            if (!trigger1Exists || overwriteIfExists)
-            {
-                if (trigger1Exists)
-                    EventTriggerDrop($"{functionName}_Trigger::{ConnectionString.SchemaName}", true);
+//            if (!trigger1Exists || overwriteIfExists)
+//            {
+//                if (trigger1Exists)
+//                    EventTriggerDrop($"{functionName}_Trigger::{ConnectionString.SchemaName}", true);
 
-                var trigger1 = $"CREATE EVENT TRIGGER \"{functionName}_Trigger::{ConnectionString.SchemaName}\" ON ddl_command_end EXECUTE PROCEDURE \"{ConnectionString.SchemaName}\".\"{functionName}\"();";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger1);
-            }
+//                var trigger1 = $"CREATE EVENT TRIGGER \"{functionName}_Trigger::{ConnectionString.SchemaName}\" ON ddl_command_end EXECUTE PROCEDURE \"{ConnectionString.SchemaName}\".\"{functionName}\"();";
+//                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger1);
+//            }
 
-            var trigger2Exists = EventTriggerExists($"{functionName}_Trigger_dropped::{ConnectionString.SchemaName}");
-            if (!trigger2Exists || overwriteIfExists)
-            {
-                if (trigger2Exists)
-                    EventTriggerDrop($"{functionName}_Trigger_dropped::{ConnectionString.SchemaName}", true);
+//            var trigger2Exists = EventTriggerExists($"{functionName}_Trigger_dropped::{ConnectionString.SchemaName}");
+//            if (!trigger2Exists || overwriteIfExists)
+//            {
+//                if (trigger2Exists)
+//                    EventTriggerDrop($"{functionName}_Trigger_dropped::{ConnectionString.SchemaName}", true);
 
-                var trigger2 = $"CREATE EVENT TRIGGER \"{functionName}_Trigger_dropped::{ConnectionString.SchemaName}\" ON sql_drop EXECUTE PROCEDURE \"{ConnectionString.SchemaName}\".\"{functionName}_dropped\"();";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger2);
-            }
+//                var trigger2 = $"CREATE EVENT TRIGGER \"{functionName}_Trigger_dropped::{ConnectionString.SchemaName}\" ON sql_drop EXECUTE PROCEDURE \"{ConnectionString.SchemaName}\".\"{functionName}_dropped\"();";
+//                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger2);
+//            }
 
+//        }
+
+
+        #region Triggers
+        public bool TriggersForTriggerFunctionExists(string triggerFunctionName)
+        {
+            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(SQLStatements.TriggerExistsForTriggerFunction(triggerFunctionName));
         }
 
+        public void DropTriggerFunction(string triggerFunctionName)
+        {
+            new DbExecuter(ConnectionString).ExecuteNonQuery(SQLStatements.DropTriggerFunction(triggerFunctionName));
+        }
+
+        public void CreateTriggerFunction(bool overwriteIfExists = false)
+        {
+            if (!FunctionExists("Notify-TableEvent") || overwriteIfExists)
+            {
+                new DbExecuter(ConnectionString).ExecuteNonQuery(TableStatements.BuildTriggerFunction(ConnectionString.SchemaName, "Notify-TableEvent"));
+            }
+        }
         #endregion
 
-      
+
     }
 }

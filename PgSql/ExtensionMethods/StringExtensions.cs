@@ -13,11 +13,7 @@ namespace doob.PgSql.ExtensionMethods
             return input.Trim(String.Join("", trimCharacters).ToCharArray());
         }
 
-        public static string ToNull(this string value)
-        {
-            return String.IsNullOrWhiteSpace(value) ? null : value;
-        }
-
+      
         public static string ClearString(this string input)
         {
             return input.TrimToNull(" ", "\"", ".");
@@ -28,6 +24,14 @@ namespace doob.PgSql.ExtensionMethods
             var escapedSearch = Regex.Escape(search);
             var regEx = new Regex($"(?<!\\\\){escapedSearch}");
             return regEx.Replace(value, replacewith);
+        }
+
+        public static string EnsureEndsWith(this string source, string end)
+        {
+            if (source.EndsWith(end))
+                return source;
+
+            return $"{source}{end}";
         }
 
     }

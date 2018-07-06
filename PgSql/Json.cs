@@ -6,27 +6,28 @@ using doob.PgSql.Json.Converters;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using ExpandoObjectConverter = doob.PgSql.Json.Converters.ExpandoObjectConverter;
 
 namespace doob.PgSql
 {
     public static class JSON
     {
-
-        private static JsonSerializerSettings _jsonSerializerSettings;
-        internal static JsonSerializerSettings JsonSerializerSettings
+        internal static JsonSerializerSettings JsonSerializerSettings { get; set; }
+       
+        private static JsonSerializerSettings BuildSettings(IContractResolver contractResolver)
         {
-            get => _jsonSerializerSettings ?? (_jsonSerializerSettings = new JsonSerializerSettings
+            return new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
                 ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
                 MissingMemberHandling = MissingMemberHandling.Ignore,
                 NullValueHandling = NullValueHandling.Include,
                 CheckAdditionalContent = false,
-                ContractResolver = new PrivateSetterContractResolver()
-            });
-            set => _jsonSerializerSettings = value;
+                ContractResolver = contractResolver
+            };
         }
+
 
         private static List<Type> _jsonConversters;
         public static void RegisterJsonConverters<T>() where T : JsonConverter
@@ -55,6 +56,8 @@ namespace doob.PgSql
 
         static JSON()
         {
+            JsonSerializerSettings = BuildSettings(new PrivateSetterContractResolver());
+           
             RegisterJsonConverters<StringEnumConverter>();
             RegisterJsonConverters<PgSqlLTreeConverter>();
             RegisterJsonConverters<IPAddressConverter>();
@@ -118,6 +121,12 @@ namespace doob.PgSql
             return jToken.ToObject<T>(JsonSerializer.Create(JsonSerializerSettings));
         }
 
+        internal static T ToObject<T>(JToken jToken, IContractResolver contractResolver)
+        {
+            
+            return jToken.ToObject<T>(JsonSerializer.Create(BuildSettings(contractResolver)));
+        }
+
         internal static Dictionary<string, object> ToDictionary(object data, bool ignoreCase = false)
         {
             if (data == null)
@@ -157,6 +166,8 @@ namespace doob.PgSql
         internal static JObject ToJObject(object value) {
             return JObject.FromObject(value, JsonSerializer.Create(JsonSerializerSettings));
         }
+
+        
     }
 
     

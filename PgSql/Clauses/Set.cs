@@ -82,7 +82,7 @@ namespace doob.PgSql.Clauses
 
             _values.ForEach(v =>
             {
-                if (tableDefinition == null || tableDefinition.GetColumn(v._key) != null)
+                if (tableDefinition == null || tableDefinition.GetColumnBuilderByDbName(v._key) != null)
                 {
                     var param = new PgSqlParameter(v._key, v._value).SetColum(tableDefinition);
                     sqlCommand.AppendCommandLine($"\"{param.ColumnName}\" = @{param.UniqueId},", new List<PgSqlParameter>() { param });

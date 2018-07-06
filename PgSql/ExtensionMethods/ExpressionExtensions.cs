@@ -17,7 +17,7 @@ namespace doob.PgSql.ExtensionMethods
 
             var type = typeof(T);
             var prop = type.GetProperty(name);
-            var colAttr = prop.GetCustomAttribute<PgSqlColumnAttribute>();
+            var colAttr = prop?.GetCustomAttribute<PgSqlColumnAttribute>();
             if (colAttr != null && !String.IsNullOrWhiteSpace(colAttr.Name))
                 name = colAttr.Name;
 

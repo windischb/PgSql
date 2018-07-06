@@ -38,6 +38,7 @@ namespace doob.PgSql
             _commandBuilder.AppendLine(prepareAddCommand(command, items));
             return this;
         }
+        
 
         public void SetValue(string columnName, string parameterName, object value)
         {

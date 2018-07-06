@@ -48,7 +48,7 @@ namespace doob.PgSql.Statements
 
             foreach (var column in tableDefinition.Columns())
             {
-               _intoColumns.AddColumn(column.Name);
+               _intoColumns.AddColumn(column.GetNameForDb());
             }
             return this;
         }
@@ -76,26 +76,6 @@ namespace doob.PgSql.Statements
 
         public Insert AddValuesFromObject(object @object)
         {
-            //Dictionary<string, object> tempDict = null;
-            //if (@object is JObject)
-            //    tempDict = ((JObject)@object).ToObject<Dictionary<string, object>>();
-
-            //if (tempDict == null)
-            //{
-            //    var dict = @object as IDictionary<string, object>;
-            //    if (dict != null)
-            //    {
-            //        tempDict = new Dictionary<string, object>(dict, StringComparer.OrdinalIgnoreCase);
-            //    }
-            //    else
-            //    {
-            //        tempDict = @object.GetType().GetProperties(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance).ToDictionary(
-            //            (p) => p.Name,
-            //            (p) => p.GetValue(@object),
-            //            StringComparer.OrdinalIgnoreCase);
-            //    }
-            //}
-
             return AddNamedValues(global::doob.PgSql.JSON.ToDictionary(@object).ToArray());
         }
 
@@ -148,10 +128,10 @@ namespace doob.PgSql.Statements
 
                 _intoColumns._columns.ForEach(c =>
                 {
-                    var col = tableDefinition?.GetColumn(c._name);
+                    var col = tableDefinition?.GetColumnBuilderByDbName(c._name);
                     if (col == null)
                     {
-                        keyDefinition.AddColumn(new ColumnBuilder().SetName(c._name));
+                        keyDefinition.AddColumn(new ColumnBuilder().SetDbName(c._name));
                     }
                     else
                     {
@@ -167,10 +147,10 @@ namespace doob.PgSql.Statements
 
                 foreach (var valuesClause in _valueClauses)
                 {
-                    if (valuesClause is NamedValues)
+                    if (valuesClause is NamedValues namedValues)
                     {
-                        var values = valuesClause as NamedValues;
-                        var valuesComm = valuesClause.GetSqlCommand(keyDefinition);
+                        
+                        var valuesComm = namedValues.GetSqlCommand(keyDefinition);
                         sqlCommand.AppendCommandLine($"\t({valuesComm.Command}),", valuesComm.Parameters);
 
                     }

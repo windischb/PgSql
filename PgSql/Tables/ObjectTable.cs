@@ -7,7 +7,7 @@ using doob.PgSql.Statements;
 
 namespace doob.PgSql.Tables
 {
-    public class ObjectTable : BaseTable<ObjectTable, object>
+    public class ObjectTable : BaseTable<ObjectTable, object>, ITable
     {
 
         public ObjectTable() : base() { }
@@ -15,6 +15,7 @@ namespace doob.PgSql.Tables
         public ObjectTable(ConnectionString connection) : base(connection) { }
         public ObjectTable(ConnectionStringBuilder connectionBuilder) : base(connectionBuilder ){ }
 
+        public new TableDefinition TableDefinition => base.TableDefinition;
 
         public new TypedTable<T> Typed<T>()
         {
@@ -23,7 +24,7 @@ namespace doob.PgSql.Tables
 
         public new ObjectTable ConfigureCertificateEncryption(string certificatePath, string password)
         {
-            _secureDataManager = new SecureDataManager(certificatePath, password);
+            SecureDataManager = new SecureDataManager(certificatePath, password);
             return this;
         }
 

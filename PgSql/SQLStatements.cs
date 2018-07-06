@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Text;
+using doob.PgSql.ExtensionMethods;
+using doob.PgSql.Tables;
 
 namespace doob.PgSql
 {
@@ -260,12 +262,9 @@ namespace doob.PgSql
 
             return  $@"
 SELECT	t1.column_name,
-	t1.is_nullable,
-	t1.udt_name,
-    t1.data_type,
+    t1.is_nullable::bool,
 	t1.column_default,
-	t1.ordinal_position,
-    t1.domain_name,
+	(t1.ordinal_position -1) as ordinal_position,
 	( 
 		SELECT EXISTS
 		(
@@ -275,7 +274,7 @@ SELECT	t1.column_name,
 			ON t.constraint_name = c.constraint_name
 			WHERE t.table_schema = '{schemaName}' AND t.table_name = '{tableName}' AND t.constraint_type = 'PRIMARY KEY' AND c.column_name = t1.column_name
 		)
-	) as IsPrimaryKey,
+	) as is_primarykey,
     ( 
 		SELECT EXISTS
 		(
@@ -285,7 +284,11 @@ SELECT	t1.column_name,
 			ON t.constraint_name = c.constraint_name
 			WHERE t.table_schema = '{schemaName}' AND t.table_name = '{tableName}' AND t.constraint_type = 'UNIQUE' AND c.column_name = t1.column_name
 		)
-	) as IsUnique
+	) as is_unique,
+    LTRIM(CASE WHEN (t1.data_type = 'ARRAY') THEN CONCAT(t1.udt_name::text,'[]')
+         ELSE t1.udt_name::text
+    END,'_') as pg_type
+
 from information_schema.columns as t1 where table_name='{tableName}' AND table_schema='{schemaName}'
 ";
         }
@@ -658,6 +661,49 @@ $$ LANGUAGE plpgsql;
             name = $"{name.Trim("\"".ToCharArray())}";
 
             return $"SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_type JOIN pg_catalog.pg_namespace ON pg_namespace.oid = pg_type.typnamespace WHERE typname ='{name}' AND typtype = 'd' AND nspname = 'public')";
+        }
+
+
+        #endregion
+
+
+
+
+
+        #region TriggerFunction
+
+        public static string TriggerExistsForTriggerFunction(string triggerName)
+        {
+            triggerName = triggerName.EnsureEndsWith("_Trigger");
+            return $"SELECT EXISTS (SELECT 1 FROM  information_schema.triggers WHERE trigger_name LIKE '{triggerName}::%')";
+        }
+
+        public static string DropTriggerFunction(string triggerFunctionName, string schema = "public")
+        {
+            return $"DROP FUNCTION IF EXISTS \"{schema}\".\"{triggerFunctionName}\"()";
+        }
+
+        #endregion
+
+
+        #region Trigger
+
+        public static string TableTriggerDrop(string triggerName, ITable table)
+        {
+            triggerName = triggerName.EnsureEndsWith("_Trigger");
+            return $"DROP TRIGGER IF EXISTS \"{triggerName}::{table.GetConnectionString().SchemaName}.{table.GetConnectionString().TableName}\" ON \"{table.GetConnectionString().SchemaName}\".\"{table.GetConnectionString().TableName}\";";
+        }
+
+        public static string TableTriggerExists(string triggerName, ITable table)
+        {
+            triggerName = triggerName.EnsureEndsWith("_Trigger");
+            return $"SELECT EXISTS(select 1 from pg_trigger where tgname = '{triggerName}::{table.GetConnectionString().SchemaName}.{table.GetConnectionString().TableName}');";
+        }
+
+        public static string TableTriggerCreate(string triggerName, string triggerFunctionName, ITable table)
+        {
+            triggerName = triggerName.EnsureEndsWith("_Trigger");
+            return $"CREATE TRIGGER \"{triggerName}::{table.GetConnectionString().SchemaName}.{table.GetConnectionString().TableName}\" AFTER INSERT OR UPDATE OR DELETE ON \"{table.GetConnectionString().SchemaName}\".\"{table.GetConnectionString().TableName}\" FOR EACH ROW EXECUTE PROCEDURE \"{table.GetConnectionString().SchemaName}\".\"{triggerFunctionName}\"();";
         }
 
 

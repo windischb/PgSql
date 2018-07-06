@@ -30,10 +30,16 @@ namespace doob.PgSql.ExtensionMethods {
                 dict.Add("Database", connectionString.DatabaseName);
             }
 
+            if (!String.IsNullOrWhiteSpace(connectionString.ApplicationName))
+            {
+                dict.Add("ApplicationName", connectionString.ApplicationName);
+            }
 
             return String.Join(";", dict.OrderBy(p => p.Key).Select(e => $"{e.Key}={e.Value}"));
         }
 
+
+        
     }
 
 }
