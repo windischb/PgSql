@@ -160,11 +160,7 @@ namespace doob.PgSql.Listener
 
                         table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
                     }
-                    else
-                    {
-                        _listenOnTables.Add(table);
-                    }
-
+                    _listenOnTables.Add(table);
                 }
             }
             
