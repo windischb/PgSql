@@ -21,8 +21,6 @@ namespace doob.PgSql.Listener
 
         private static readonly ILog Logger = LogProvider.For<DMLTriggerListener>();
 
-        //protected internal static ConcurrentDictionary<string, DMLTriggerListener> Listeners = new ConcurrentDictionary<string, DMLTriggerListener>();
-
         private Guid Id { get; } = Guid.NewGuid();
         private readonly Schema _schema;
         private NpgsqlConnection _npgsqlConnection;
