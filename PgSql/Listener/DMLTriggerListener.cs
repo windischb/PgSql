@@ -63,7 +63,7 @@ namespace doob.PgSql.Listener
                                     ? TriggerAction.DeletedInsert
                                     : TriggerAction.DeletedUpdate;
                             }
-                            //notifyObject.EventData = GetTable(notifyObject.Table).QueryByPrimaryKey(notifyObject.EventData);
+                           
                         }
                         return notifyObject;
                     })
