@@ -63,7 +63,6 @@ namespace doob.PgSql.Listener
                                     ? TriggerAction.DeletedInsert
                                     : TriggerAction.DeletedUpdate;
                             }
-                           
                         }
                         return notifyObject;
                     })
