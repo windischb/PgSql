@@ -1,4 +1,6 @@
 ﻿using System;
+using Newtonsoft.Json.Linq;
+using NpgsqlTypes;
 
 namespace doob.PgSql.Clauses
 {
@@ -6,10 +8,12 @@ namespace doob.PgSql.Clauses
     {
         internal static string GetValuePlaceholder(PgSqlParameter parameter)
         {
-            if(parameter.Value == null)
+            if (parameter.Value == null)
                 return "DEFAULT";
 
-            if (parameter.Column?.DotNetType == typeof(String))
+            var npgsqlDbType = parameter.Column.GetNpgSqlDbType();
+
+            if (npgsqlDbType == NpgsqlDbType.Text)
             {
                 var str = parameter.Value as string;
                 if (str != null)
@@ -24,14 +28,14 @@ namespace doob.PgSql.Clauses
             if (parameter.Value is string _str && _str == "DEFAULT")
                 return "DEFAULT";
 
-            if (parameter.Column?.DotNetType == typeof(Guid))
+            if (npgsqlDbType == NpgsqlDbType.Uuid)
             {
-                if(!String.IsNullOrWhiteSpace(parameter.Column.DefaultValue))
-                    if(parameter.Value.ToString() == Guid.Empty.ToString())
+                if (!String.IsNullOrWhiteSpace(parameter.Column.DefaultValue))
+                    if (parameter.Value.ToString() == Guid.Empty.ToString())
                         return "DEFAULT";
             }
 
-            if (parameter.Column?.DotNetType == typeof(DateTime))
+            if (npgsqlDbType == NpgsqlDbType.Timestamp)
             {
                 if (!String.IsNullOrWhiteSpace(parameter.Column.DefaultValue))
                     if ((DateTime)parameter.Value == default(DateTime))
@@ -39,10 +43,10 @@ namespace doob.PgSql.Clauses
             }
 
 
-            
+
 
             if (!String.IsNullOrWhiteSpace(parameter.Column?.DefaultValue) && parameter.Value == null)
-                    return "DEFAULT";
+                return "DEFAULT";
 
 
             return $"@{parameter.UniqueId}";
@@ -50,7 +54,7 @@ namespace doob.PgSql.Clauses
 
         internal static bool IsNotDefault(PgSqlParameter parameter)
         {
-            
+
             var str = parameter.Value as string;
             if (str != null)
             {

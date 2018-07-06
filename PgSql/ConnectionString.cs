@@ -130,6 +130,24 @@ namespace doob.PgSql
         private string _tableName;
 
 
+        [ConnectionStringMember("ApplicationName")]
+        public string ApplicationName
+        {
+            get { return _applicationName; }
+            internal set {
+                if (String.IsNullOrWhiteSpace(value))
+                {
+                    _applicationName = null;
+                }
+                else
+                {
+                    _applicationName = value;
+                }
+            }
+        }
+        private string _applicationName;
+
+
         public ConnectionString() : this(null)
         {
 

@@ -2,9 +2,10 @@
 {
     public enum ListeningConnectionState
     {
-        Closed = 0,
-        Open = 1,
-        Reconnect = 2,
+        New = -1,
+        Disconnected = 0,
+        Connected = 1,
+        Connecting = 2,
         Error = 4
     }
 }

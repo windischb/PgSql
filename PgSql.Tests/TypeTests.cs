@@ -33,7 +33,7 @@ namespace PgSql.Tests
             var statement = doob.PgSql.Statements.Insert.Into("TestTable")
                 .AddColumnsFromTableDefinition(tbd)
                 .AddValuesFromObject(model)
-                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.Name).ToArray()));
+                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.GetNameForDb()).ToArray()));
 
             var sql = statement.GetSqlCommand(tbd);
 
@@ -58,7 +58,7 @@ namespace PgSql.Tests
             var statement = doob.PgSql.Statements.Insert.Into("TestTable")
                 .AddColumnsFromTableDefinition(tbd)
                 .AddValuesFromObject(model)
-                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.Name).ToArray()));
+                .AddClause(Returning.Columns(tbd.PrimaryKeys().Select(p => p.GetNameForDb()).ToArray()));
 
             var sql = statement.GetSqlCommand(tbd);
 
@@ -67,7 +67,7 @@ namespace PgSql.Tests
             table.Insert(model);
 
 
-            var executor = new DbExecuter(table.ConnectionString);
+            var executor = new DbExecuter(table.GetConnectionString());
 
             
             var resp = executor.ExecuteReader<TypeTestModel>($"SELECT * FROM {table}");

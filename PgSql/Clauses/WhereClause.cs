@@ -163,7 +163,7 @@ namespace doob.PgSql.Clauses
 
         public PgSqlCommand GetSqlCommand(TableDefinition tableDefinition)
         {
-            var column = tableDefinition?.GetColumn(_first.ColumnName);
+            var column = tableDefinition?.GetColumnBuilderByDbName(_first.ColumnName);
             return _first.GetSqlCommand(column);
         }
     }

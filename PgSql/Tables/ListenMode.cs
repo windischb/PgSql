@@ -5,10 +5,8 @@ namespace doob.PgSql.Tables
 {
     public enum ListenMode
     {
-        ReferenceTablePrimaryKeys,
-        ReferenceTableEntry,
-        HistoryTableId,
-        HistoryTableEntry
+        TableEntryPrimaryKeys,
+        TableEntry
     }
 
     public class NotificationObject

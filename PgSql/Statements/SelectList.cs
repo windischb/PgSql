@@ -36,10 +36,10 @@ namespace doob.PgSql.Statements
         public SelectList AddColumn(Column pgSqlColumn) {
 
             SelectListColumn col;
-            if (String.IsNullOrWhiteSpace(pgSqlColumn.Alias)) {
-                col = new SelectListColumn(pgSqlColumn.Name);
+            if (String.IsNullOrWhiteSpace(pgSqlColumn.DbName)) {
+                col = new SelectListColumn(pgSqlColumn.ClrName);
             } else {
-                col = new SelectListColumn(pgSqlColumn.Alias, pgSqlColumn.Name);
+                col = new SelectListColumn(pgSqlColumn.DbName, pgSqlColumn.ClrName);
             }
            
             col.DotnetType = pgSqlColumn.DotNetType;

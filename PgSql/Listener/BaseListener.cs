@@ -48,7 +48,7 @@ namespace doob.PgSql.Listener
         {
             
             _listeningConnection?.CloseConnection();
-            _connectionStateChangeSubject.OnNext(ListeningConnectionState.Reconnect);
+            _connectionStateChangeSubject.OnNext(ListeningConnectionState.Connecting);
 
             _listeningConnection = new DbExecuter(_connectionBuilder).BuildNpgSqlConnetion();
             _listeningConnection.Notification += _OnEvent;
@@ -69,7 +69,7 @@ namespace doob.PgSql.Listener
                     prepareCommand.ExecuteNonQuery();
                     prepareCommand.Dispose();
 
-                    _connectionStateChangeSubject.OnNext(ListeningConnectionState.Open);
+                    _connectionStateChangeSubject.OnNext(ListeningConnectionState.Connected);
 
                     while (true)
                     {
@@ -120,7 +120,7 @@ namespace doob.PgSql.Listener
                 }
                 else
                 {
-                    _connectionStateChangeSubject.OnNext(ListeningConnectionState.Closed);
+                    _connectionStateChangeSubject.OnNext(ListeningConnectionState.Disconnected);
                 }
             }
 

@@ -36,9 +36,15 @@ namespace doob.PgSql.Clauses
 
             var values = _values.Select(val =>
             {
-                var expr = new PgSqlParameter(val._key, val._value);
+                var col = tableDefinition.GetColumnByClrName(val._key) ??
+                          tableDefinition.GetColumnByDbName(val._key);
+
+                var expr = new PgSqlParameter(col.GetNameForDb(), val._value);
                 return expr;
             }).ToList();
+
+            var valuesIds = values.Select(v => v.UniqueId).ToList();
+
 
             var sortedValues = new List<PgSqlParameter>();
 
@@ -46,7 +52,8 @@ namespace doob.PgSql.Clauses
             {
                 foreach (var column in tableDefinition.Columns())
                 {
-                    var exists = values.FirstOrDefault(v => v.ColumnName.Equals(column.Name, StringComparison.OrdinalIgnoreCase));
+                    
+                    var exists = values.FirstOrDefault(v => v.ColumnName.Equals(column.GetNameForDb(), StringComparison.OrdinalIgnoreCase));
                     if (exists != null)
                     {
                         exists.Column = column;
@@ -54,7 +61,7 @@ namespace doob.PgSql.Clauses
                     }
                     else
                     {
-                        var defaultExpr = new PgSqlParameter(column.Name, "DEFAULT");
+                        var defaultExpr = new PgSqlParameter(column.GetNameForDb(), "DEFAULT");
                         defaultExpr.Column = column;
                         sortedValues.Add(defaultExpr);
                     }
@@ -64,9 +71,16 @@ namespace doob.PgSql.Clauses
             {
                 sortedValues = values;
             }
+            var sortedValuesIds = sortedValues.Select(v => v.UniqueId).ToList();
 
             if (_values.Any())
-                sqlCommand.AppendCommand($"{String.Join(", ", sortedValues.Select(ValuesClauseHelper.GetValuePlaceholder))}", sortedValues.Where(ValuesClauseHelper.IsNotDefault));
+            {
+                var parms = sortedValues.Where(ValuesClauseHelper.IsNotDefault);
+                var parmsIds = parms.Select(p => p.UniqueId);
+                var placeHolders = sortedValues.Select(ValuesClauseHelper.GetValuePlaceholder);
+                sqlCommand.AppendCommand($"{String.Join(", ", placeHolders)}", parms);
+            }
+                
 
             return sqlCommand;
         }

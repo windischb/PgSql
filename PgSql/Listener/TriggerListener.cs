@@ -73,12 +73,8 @@ namespace doob.PgSql.Listener
             var notifyName = "";
             switch (listenMode)
             {
-                case ListenMode.HistoryTableId:
-                case ListenMode.HistoryTableEntry:
-                    notifyName = $"XA-Notify-TableEvent_ByHistory";
-                    break;
-                case ListenMode.ReferenceTablePrimaryKeys:
-                case ListenMode.ReferenceTableEntry:
+                case ListenMode.TableEntryPrimaryKeys:
+                case ListenMode.TableEntry:
                     notifyName = $"XA-Notify-TableEvent_ByReference";
                     break;
                 default:
@@ -127,10 +123,10 @@ namespace doob.PgSql.Listener
             ObjectTable table;
             switch (_listenMode)
             {
-                case ListenMode.ReferenceTablePrimaryKeys:
+                case ListenMode.TableEntryPrimaryKeys:
                     returnObject = notifyObject.Data;
                     break;
-                case ListenMode.ReferenceTableEntry:
+                case ListenMode.TableEntry:
                     if (notifyObject.Action == TriggerAction.Delete)
                     {
                         returnObject = notifyObject.Data;
@@ -141,13 +137,7 @@ namespace doob.PgSql.Listener
                         returnObject = table.QueryByPrimaryKey(notifyObject.Data).CloneTo<Dictionary<string, object>>();
                     }
                     break;
-                case ListenMode.HistoryTableId:
-                    returnObject = notifyObject.Data;
-                    break;
-                case ListenMode.HistoryTableEntry:
-                    table = GetTable(notifyObject.Table);
-                    returnObject = table.HistoryTable.QueryByPrimaryKey(notifyObject.Data);
-                    break;
+               
             }
 
 

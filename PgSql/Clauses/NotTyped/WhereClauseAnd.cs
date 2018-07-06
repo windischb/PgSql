@@ -141,7 +141,7 @@ namespace doob.PgSql.Clauses.NotTyped
                 if(tableDefinition != null)
                     if (xpression.ColumnName != null)
                     {
-                        column = tableDefinition.GetColumn(xpression.ColumnName);
+                        column = tableDefinition.GetColumnBuilderByDbName(xpression.ColumnName);
                     }
 
                 PgSqlCommand comm = xpression.GetSqlCommand(column);

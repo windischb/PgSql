@@ -7,17 +7,20 @@ using doob.PgSql.Helper;
 using doob.PgSql.Interfaces;
 using doob.PgSql.Interfaces.Where;
 using doob.PgSql.Interfaces.Where.Typed;
+using doob.PgSql.Listener;
 using doob.PgSql.Statements;
 
 namespace doob.PgSql.Tables
 {
-    public class TypedTable<T> : BaseTable<TypedTable<T>, T>
+    public class TypedTable<T> : BaseTable<TypedTable<T>, T>, ITable<T>
     {
         public TypedTable() : base() { }
         public TypedTable(string connectionstring) : base(connectionstring) { }
         public TypedTable(ConnectionString connection) : base(connection) { }
         public TypedTable(ConnectionStringBuilder connectionBuilder) : base(connectionBuilder ){ }
 
+        TableDefinition ITable.TableDefinition => TableDefinition;
+        public new TableDefinition<T> TableDefinition => GetTableDefinition();
 
         public new ObjectTable NotTyped()
         {
@@ -26,11 +29,44 @@ namespace doob.PgSql.Tables
 
         public new TypedTable<T> ConfigureCertificateEncryption(string certificatePath, string password)
         {
-            _secureDataManager = new SecureDataManager(certificatePath, password);
+            SecureDataManager = new SecureDataManager(certificatePath, password);
             return this;
         }
 
         public ITypedWhereClauseLogicalBase<T> Where => Clauses.Where.Create<T>();
+
+
+        public IQueryable<T> Queryable()
+        {
+            return PgSqlQueryFactory.Queryable<T>(this);
+        }
+
+        //public new IObservable<TriggerNotification<T>> NotifyEntry(bool forceNewInstance = false)
+        //{
+        //    return TableEventListener.GetEventLister(GetSchema(), forceNewInstance).TypedEntryOnEvent(this);
+        //}
+
+        //public new IObservable<TriggerNotification<T>> NotifyKeys(bool forceNewInstance = false)
+        //{
+        //    return TableEventListener.GetEventLister(GetSchema(), forceNewInstance).TypedKeysOnEvent(this);
+        //}
+
+
+        //public TableEventSubscription OnEventGetTypedEntryAnd(Action<TriggerNotification<T>> notification, bool forceNewInstance = false)
+        //{
+        //    return DMLTriggerListener.GetEventLister(GetSchema(), forceNewInstance).OnEventGetTypedEntryAnd(this, notification);
+        //}
+
+        //public TableEventSubscription OnEventGetTypedKeysAnd(Action<TriggerNotification<T>> notification, bool forceNewInstance = false)
+        //{
+        //    return DMLTriggerListener.GetEventLister(GetSchema(), forceNewInstance).OnEventGetTypedKeysAnd(this, notification);
+        //}
+
+        private TypedTableListener<T> _onNotification;
+        public new TypedTableListener<T> Notifications(NotificationSharedBy sharedBy = NotificationSharedBy.Schema) => _onNotification ?? (_onNotification = DMLTriggerManager.GetTypedTiggerListener<T>(this, sharedBy));
+
+       
+        
 
         #region Query
 
@@ -123,6 +159,13 @@ namespace doob.PgSql.Tables
         }
 
         #endregion
+
+
+
+        public new HistoryTable<T> History()
+        {
+            return new HistoryTable<T>(this);
+        }
 
     }
 }

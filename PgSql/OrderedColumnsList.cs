@@ -7,22 +7,22 @@ namespace doob.PgSql
     {
 
         [JsonProperty]
-        private List<Column> Columns = new List<Column>();
+        private List<Column> _columns = new List<Column>();
         private object _lock = new object();
 
         public void Add(Column column)
         {
 
-            if (!column.Position.HasValue)
+            if (!column.Position.HasValue || _columns.Count < column.Position.Value)
             {
-                Columns.Add(column);
+                _columns.Add(column);
             }
             else
             {
-                Columns.Insert(column.Position.Value, column);
-                for (int i = 0; i < Columns.Count; i++)
+                _columns.Insert(column.Position.Value, column);
+                for (int i = 0; i < _columns.Count; i++)
                 {
-                    Columns[i].Position = i;
+                    _columns[i].Position = i;
                 }
                 ReorderList();
             }
@@ -31,7 +31,7 @@ namespace doob.PgSql
 
         public List<Column> GetOrderedColums()
         {
-            return Columns;
+            return _columns;
         }
 
         private void ReorderList()
@@ -39,9 +39,9 @@ namespace doob.PgSql
 
             var newList = new List<Column>();
 
-            foreach (var col in Columns)
+            foreach (var col in _columns)
             {
-                if (!col.Position.HasValue)
+                if (!col.Position.HasValue || newList.Count < col.Position.Value)
                 {
                     newList.Add(col);
                 }
@@ -54,7 +54,7 @@ namespace doob.PgSql
                     }
                 }
 
-                Columns = newList;
+                _columns = newList;
             }
 
 

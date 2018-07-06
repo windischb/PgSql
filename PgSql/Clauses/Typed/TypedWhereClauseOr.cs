@@ -220,7 +220,7 @@ namespace doob.PgSql.Clauses.Typed
                 ColumnBuilder column = null;
                 if (xpression.ColumnName != null)
                 {
-                    column = tableDefinition.GetColumn(xpression.ColumnName);
+                    column = tableDefinition.GetColumnBuilderByDbName(xpression.ColumnName);
                 }
                 var comm = xpression.GetSqlCommand(column);
                 if (not)

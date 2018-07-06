@@ -32,9 +32,9 @@ namespace doob.PgSql.ExtensionMethods
             tblDefinition.Columns().ToList().ForEach(c =>
             {
                 
-                var typ = c.CustomDbType ?? PgSqlTypeManager.GetPostgresName(c.DotNetType);
+                var typ = c.PgType ?? PgSqlTypeManager.GetPostgresName(c.DotNetType);
 
-                var str = $"\"{c.Name}\" {typ}".Trim();
+                var str = $"\"{c.GetNameForDb()}\" {typ}".Trim();
                 if (!String.IsNullOrWhiteSpace(c.DefaultValue))
                 {
                     if (c.DefaultValue.ToLower() == "bigserial")
@@ -52,7 +52,7 @@ namespace doob.PgSql.ExtensionMethods
                 if (c.MustBeUnique)
                     str = $"{str} UNIQUE".Trim();
 
-                if (!c.CanBeNullable || c.IsPrimaryKey)
+                if (!c.CanBeNull || c.IsPrimaryKey)
                     str = $"{str} NOT NULL".Trim();
 
                 strBuilder.AppendLine($"    {str},");
@@ -60,7 +60,7 @@ namespace doob.PgSql.ExtensionMethods
 
             if (tblDefinition.PrimaryKeys() != null)
             {
-                var keys = String.Join(", ", tblDefinition.PrimaryKeys().Select(p => $"\"{p.Name}\""));
+                var keys = String.Join(", ", tblDefinition.PrimaryKeys().Select(p => $"\"{p.GetNameForDb()}\""));
                 strBuilder.AppendLine($"    PRIMARY KEY ({keys})");
             }
 

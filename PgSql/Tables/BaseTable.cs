@@ -6,308 +6,216 @@ using doob.PgSql.Clauses;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Helper;
 using doob.PgSql.Interfaces.Where;
+using doob.PgSql.Listener;
 using doob.PgSql.Logging;
 using doob.PgSql.Statements;
 using doob.PgSql.TypeMapping;
+using Newtonsoft.Json.Linq;
 using Npgsql;
 using Npgsql.Schema;
 
 namespace doob.PgSql.Tables
 {
-    public abstract class BaseTable<T, TItem> where T : BaseTable<T, TItem>
+    public abstract class BaseTable<TTable, TItem> : ITable where TTable : BaseTable<TTable, TItem>
     {
 
-        private static readonly ILog Logger = LogProvider.For<BaseTable<T, TItem>>();
+        private static readonly ILog Logger = LogProvider.For<TTable>();
 
-        private ConnectionString _connectionString;
-        public ConnectionString ConnectionString
+        private readonly ConnectionString _connectionString;
+
+        //protected Lazy<TableDefinition<TItem>> LazyTableDefinition => new Lazy<TableDefinition<TItem>>(() =>
+        //{
+        //    return PgSql.TableDefinition.FromTable<TItem>(this);
+        //});
+
+        private object _tdLock = new object();
+        private TableDefinition<TItem> _tableDefinition;
+        protected TableDefinition<TItem> GetTableDefinition(bool force = false)
         {
-            get
-            {
-                if (_connectionString == null)
-                    _connectionString = ConnectionString.Build();
-
-                return _connectionString;
+            if (force) {
+                return (_tableDefinition = TableDefinition.FromTable<TItem>(this));
             }
+
+            if (_tableDefinition == null) {
+                lock (_tdLock) {
+                    return _tableDefinition ?? (_tableDefinition = TableDefinition.FromTable<TItem>(this));
+                }
+            }
+
+            return _tableDefinition;
         }
+        
 
-        private Lazy<TableDefinition> _lazyTableDefinition;
-
-        protected TableDefinition TableDefinition => _lazyTableDefinition?.Value;
-
-        protected internal SecureDataManager _secureDataManager;
+        public TableDefinition TableDefinition => GetTableDefinition();
 
         private DbExecuter _dbExecuter;
 
-        private DbExecuter Execute()
-        {
-            if (_dbExecuter == null)
-                _dbExecuter = new DbExecuter(ConnectionString);
+        protected SecureDataManager SecureDataManager;
 
-            return _dbExecuter;
-        }
+        #region Constructor
 
         protected BaseTable() : this(ConnectionString.Build()) { }
         protected BaseTable(string connectionstring) : this(ConnectionString.Build(connectionstring)) { }
-        protected BaseTable(ConnectionString connection) : this(ConnectionString.Build(connection)) { }
-        protected BaseTable(ConnectionStringBuilder connectionBuilder)
-        {
-            var con = connectionBuilder.GetConnection();
-            if (String.IsNullOrWhiteSpace(con.TableName))
-                throw new ArgumentException(nameof(con.TableName));
-
-            _connectionString = ConnectionString.Build(connectionBuilder);
-            _lazyTableDefinition = new Lazy<TableDefinition>(UpdateTableDefinition);
-
-            
-        }
-
-        public Server GetServer()
-        {
-            return new Server(ConnectionString);
-        }
-        public Database GetDatabase()
-        {
-            return new Database(ConnectionString);
-        }
-        public Schema GetSchema()
-        {
-            return new Schema(ConnectionString);
-        }
-
-        public bool Exists()
-        {
-            return GetDatabase().SchemaExists(ConnectionString.SchemaName);
-        }
-        public T EnsureExists()
-        {
-            GetSchema().TableExists(ConnectionString.TableName, true, false);
-            return (T)this;
-        }
-        public T EnsureNotExists()
-        {
-            GetSchema().TableExists(ConnectionString.TableName, false, true);
-            return (T)this;
-        }
-
-        public void Drop()
-        {
-            GetSchema().TableDrop(ConnectionString.TableName);
-        }
-        public void Drop(bool throwIfNotExists)
-        {
-            GetSchema().TableDrop(ConnectionString.TableName, throwIfNotExists);
-        }
-
-        protected T ConfigureCertificateEncryption(string certificatePath, string password)
-        {
-            _secureDataManager = new SecureDataManager(certificatePath, password);
-            return (T)this;
-        }
-
-        public TableDefinition GetTableDefinition()
-        {
-            return GetTableDefinition(false);
-        }
-        public TableDefinition GetTableDefinition(bool force)
-        {
-            if (_lazyTableDefinition == null || TableDefinition == null || force)
-            {
-                _lazyTableDefinition = new Lazy<TableDefinition>(UpdateTableDefinition);
-            }
-            return TableDefinition;
-        }
-
-        protected TableDefinition UpdateTableDefinition()
+        protected BaseTable(ConnectionStringBuilder connectionBuilder) : this(connectionBuilder.GetConnection()) { }
+        protected BaseTable(Action<ConnectionStringBuilder> connectionBuilder) : this(connectionBuilder.InvokeAction()) { }
+        protected BaseTable(ConnectionString connection)
         {
 
-            var td = new TableDefinition();
+            if (String.IsNullOrWhiteSpace(connection.TableName))
+                throw new ArgumentException(nameof(connection.TableName));
 
-            var tabl = GetTableSchema().ToList();
-
-            foreach (var str in tabl)
-            {
-                //var domainName = str.DataTypeName;
-                //var postgresType = str.DataTypeName;
-                //if (domainName.StartsWith("secstring"))
-                //{
-                //    postgresType = "text";
-                //}
-
-                //var name = str.ColumnName;
-                ////var postgresType = str.DataTypeName;
-                //var position = str.ColumnOrdinal.ToInt();
-                //var @default = str.DefaultValue;
-                //var nullable = str.AllowDBNull.CastToBoolean();
-                //var isPrimaryKey = str.IsKey.CastToBoolean();
-
-
-                //var dataType = str.DataType;
-                //if (dataType == typeof(Array))
-                //    postgresType = $"{postgresType.TrimStart('_')}[]";
-
-                //var type = str.DataType;
-                //var col = Column.Build(name, type)
-                //    .SetPosition(position)
-                //    .DefaultValue(@default)
-                //    .AsPrimaryKey(isPrimaryKey)
-                //    .Nullable(nullable);
-
-
-
-                td.AddColumn(str);
-            }
-            return td;
-        }
-
-
-        protected Column GetColumn(int position)
-        {
-            return TableDefinition.Columns()?.FirstOrDefault(c => c.Position == position);
-        }
-
-        protected Column GetColumn(string name)
-        {
-            return
-                TableDefinition.Columns()?.FirstOrDefault(
-                    c => String.Equals(c.Name, name.Trim("\"".ToCharArray()), StringComparison.CurrentCultureIgnoreCase));
-        }
-
-
-
-        #region Triggers
-
-        public bool EventTriggerExists(string triggerName)
-        {
-            var command = $"SELECT EXISTS(select 1 from pg_trigger where tgname = '{triggerName}');";
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(command);
-        }
-
-        public void EventTriggerDrop(string triggerName, bool force)
-        {
-            var command = $"DROP EVENT TRIGGER IF EXISTS \"{triggerName}\"";
-
-            if (force)
-                command = $"{command} CASCADE";
-
-            new DbExecuter(ConnectionString).ExecuteNonQuery(command);
-        }
-
-
-        public void RegisterEventTrigger(ListenMode listenMode, bool overwriteIfExists = false)
-        {
-
-            string listenFunctionName;
-            var functioncommand = "";
-            switch (listenMode)
-            {
-                case ListenMode.HistoryTableId:
-                case ListenMode.HistoryTableEntry:
-                    HistoryTable.EnsureExists();
-                    listenFunctionName = $"XA-Notify-TableEvent_ByHistory";
-                    functioncommand = TableStatements.BuildTriggerFunction_ByHistoryKeys(ConnectionString.SchemaName, listenFunctionName, listenMode);
-                    break;
-                case ListenMode.ReferenceTablePrimaryKeys:
-                case ListenMode.ReferenceTableEntry:
-                    listenFunctionName = $"XA-Notify-TableEvent_ByReference";
-                    functioncommand = TableStatements.BuildTriggerFunction_ByReferenceKeys(ConnectionString.SchemaName, listenFunctionName, listenMode);
-                    break;
-                default:
-                    throw new NotImplementedException(listenMode.ToString());
-            }
-
-            if (!GetSchema().FunctionExists(listenFunctionName) || overwriteIfExists)
-            {
-                new DbExecuter(ConnectionString).ExecuteNonQuery(functioncommand);
-            }
-
-            var trigger1Exists = EventTriggerExists($"{listenFunctionName}_Trigger::{ConnectionString.SchemaName}.{ConnectionString.TableName}");
-
-            if (!trigger1Exists || overwriteIfExists)
-            {
-                if (trigger1Exists)
-                    EventTriggerDrop($"{listenFunctionName}_Trigger::{ConnectionString.SchemaName}.{ConnectionString.TableName}", true);
-
-                var trigger1 = $"CREATE TRIGGER \"{listenFunctionName}_Trigger::{ConnectionString.SchemaName}.{ConnectionString.TableName}\" AFTER INSERT OR UPDATE OR DELETE ON \"{ConnectionString.SchemaName}\".\"{ConnectionString.TableName}\" FOR EACH ROW EXECUTE PROCEDURE \"{ConnectionString.SchemaName}\".\"{listenFunctionName}\"();";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger1);
-            }
+            _connectionString = ConnectionString.Build(connection);
 
         }
 
         #endregion
 
-        private HistoryTable<T, TItem> _histTable;
-        internal HistoryTable<T, TItem> HistoryTable
-        {
-            get
-            {
-                if (_histTable == null)
-                    _histTable = new HistoryTable<T, TItem>(this);
 
-                return _histTable;
+
+        protected DbExecuter Execute()
+        {
+            return _dbExecuter ?? (_dbExecuter = new DbExecuter(_connectionString));
+        }
+
+
+        public ConnectionString GetConnectionString() => _connectionString.Clone();
+
+        public Server GetServer()
+        {
+            return new Server(_connectionString);
+        }
+        public Database GetDatabase()
+        {
+            return new Database(_connectionString);
+        }
+        public Schema GetSchema()
+        {
+            return new Schema(_connectionString);
+        }
+
+
+        #region Check Exists
+
+        public bool Exists()
+        {
+            return GetDatabase().SchemaExists(_connectionString.SchemaName);
+        }
+        public virtual TTable EnsureExists()
+        {
+            GetSchema().EnsureExists().TableExists(_connectionString.TableName, true, false);
+            return (TTable)this;
+        }
+        public virtual TTable EnsureNotExists()
+        {
+            GetSchema().TableExists(_connectionString.TableName, false, true);
+            return (TTable)this;
+        }
+
+        #endregion
+
+
+        public Schema Drop(bool throwIfNotExists = false)
+        {
+            return GetSchema().TableDrop(_connectionString.TableName, throwIfNotExists);
+        }
+
+        protected TTable ConfigureCertificateEncryption(string certificatePath, string password)
+        {
+            SecureDataManager = new SecureDataManager(certificatePath, password);
+            return (TTable)this;
+        }
+
+
+        private TableListener _onNotification;
+        public TableListener Notifications(NotificationSharedBy sharedBy = NotificationSharedBy.Schema) => _onNotification ?? (_onNotification = DMLTriggerManager.GetTiggerListener(this, sharedBy));
+
+
+        #region Triggers
+
+        public bool TriggerExists(string triggerName)
+        {
+            return Execute().ExecuteScalar<bool>(SQLStatements.TableTriggerExists(triggerName, this));
+        }
+
+        public void TriggerDrop(string triggerName)
+        {
+            Execute().ExecuteNonQuery(SQLStatements.TableTriggerDrop(triggerName, this));
+        }
+
+        public void TriggerCreate(string triggerName, string triggerFunctionName, bool overwriteIfExists = false)
+        {
+            var triggerExists = TriggerExists(triggerName);
+
+            if (!triggerExists || overwriteIfExists)
+            {
+                if (triggerExists)
+                    TriggerDrop(triggerName);
+
+                Execute().ExecuteNonQuery(SQLStatements.TableTriggerCreate(triggerName, triggerFunctionName, this));
             }
         }
 
+        #endregion
+
+
+
         public TypedTable<TOut> Typed<TOut>()
         {
-            var tbl = new TypedTable<TOut>(ConnectionString)
+            var tbl = new TypedTable<TOut>(_connectionString)
             {
-                _secureDataManager = _secureDataManager
+                SecureDataManager = SecureDataManager
             };
             return tbl;
 
         }
         public ObjectTable NotTyped()
         {
-            var tbl = new ObjectTable(this.ConnectionString.Clone())
+            var tbl = new ObjectTable(_connectionString)
             {
-                _secureDataManager = _secureDataManager
+                SecureDataManager = SecureDataManager
             };
             return tbl;
         }
 
         protected string GetTableName()
         {
-            return $"\"{ConnectionString.SchemaName.Trim()}\".\"{ ConnectionString.TableName.Trim()}\"".Trim('.');
+            return $"\"{_connectionString.SchemaName.Trim()}\".\"{ _connectionString.TableName.Trim()}\"".Trim('.');
         }
 
-        public T BeginTransaction()
+        public TTable BeginTransaction()
         {
-            var tbl = (T)Activator.CreateInstance(typeof(T), this.ConnectionString);
+            var tbl = (TTable)Activator.CreateInstance(typeof(TTable), _connectionString);
             tbl.Execute().BeginTransaction();
             return tbl;
         }
 
-        public T CommitTransaction()
+        public TTable CommitTransaction()
         {
             Execute().CommitTransaction();
-            return (T)this;
+            return (TTable)this;
         }
 
-        public T RollbackTransaction()
+        public TTable RollbackTransaction()
         {
             Execute().RollbackTransaction();
-            return (T)this;
+            return (TTable)this;
         }
 
-        public T EndTransaction()
+        public TTable EndTransaction()
         {
             Execute().EndTransaction();
-            return (T)this;
+            return (TTable)this;
         }
 
 
-        public void ModifyTable()
-        {
-
-        }
 
         #region Query
 
-        protected string[] Query(Select select)
+        protected JObject[] Query(Select select)
         {
 
-            if (select._from == null) {
+            if (select._from == null)
+            {
                 select.From(From.TableOrView(GetTableName()));
             }
 
@@ -323,7 +231,7 @@ namespace doob.PgSql.Tables
 
         }
 
-        protected string[] Query(string sqlQuery)
+        protected JObject[] Query(string sqlQuery)
         {
             try
             {
@@ -337,28 +245,7 @@ namespace doob.PgSql.Tables
 
         }
 
-        //private string QueryByPrimaryKey(Dictionary<string, object> value)
-        //{
-        //    var prNames = TableDefinition.PrimaryKeys();
-
-        //    var from = From.TableOrView(GetTableName());
-
-        //    var where = new List<IWhere>();
-        //    foreach (var prName in prNames)
-        //    {
-        //        if (value.ContainsKey(prName.Name))
-        //            where.Add(Where.Create().Eq(prName.Name, value[prName.Name]));
-        //    }
-
-        //    var selectStatement = new Select().AddColumnsFromTableDefinition(TableDefinition)
-        //        .From(from)
-        //        .Where(Where.MergeQueriesAND(where));
-
-        //    return Query(selectStatement).FirstOrDefault();
-        //}
-
-
-        protected string QueryByPrimaryKey(object value)
+        protected JObject QueryByPrimaryKey(object value)
         {
             var prNames = TableDefinition.PrimaryKeys();
             Dictionary<string, object> dict = new Dictionary<string, object>();
@@ -371,15 +258,15 @@ namespace doob.PgSql.Tables
                 if (prNames.Length > 1)
                     throw new Exception("Table has more than one PrimaryKey, please provide a Dictionary with Key/Value");
 
-                var pKeyName = prNames.FirstOrDefault()?.Name;
+                var pKeyName = prNames.FirstOrDefault()?.DbName;
                 dict.Add(pKeyName, value);
             }
 
-            
+
             var from = From.TableOrView(GetTableName());
 
             var where = new List<IWhere>();
-            
+
             foreach (var kv in dict)
             {
                 where.Add(Where.Create().Eq(kv.Key, kv.Value));
@@ -394,36 +281,68 @@ namespace doob.PgSql.Tables
         }
 
 
-
-
         #endregion
 
         #region Insert
 
-        protected Dictionary<string, object> Insert(object document) {
+        protected Dictionary<string, object> Insert(object document)
+        {
             return Insert(document, null);
         }
+
+        private Dictionary<string, object> BuildInsertData(object document)
+        {
+            if (document == null)
+                return null;
+
+            var jo = JObject.FromObject(document);
+            var dict = new Dictionary<string, object>();
+            foreach (var col in TableDefinition.Columns())
+            {
+                var colName = col.GetNameForDb();
+                if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
+                {
+                    if (jo.ContainsKey(colName))
+                    {
+                        var val = jo[colName];
+
+                        if (val.Type == JTokenType.Null)
+                            continue;
+
+                        if ((val.Type == JTokenType.Integer || val.Type == JTokenType.Float) && Math.Abs(val.ToObject<float>() - 0) < 0)
+                            continue;
+
+                        dict.Add(colName, val.ToObject(col.DotNetType));
+                    }
+                }
+
+            }
+
+            return dict;
+        }
+
+
         protected Dictionary<string, object> Insert(object document, List<string> returnValues)
         {
             var dict = document.ToDotNetDictionary();
             foreach (var col in TableDefinition.Columns())
             {
 
-                if (!col.CanBeNullable && !String.IsNullOrWhiteSpace(col.DefaultValue))
+                if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
                 {
-                    if (dict.ContainsKey(col.Name))
+                    if (dict.ContainsKey(col.GetNameForDb()))
                     {
-                        if (dict[col.Name] == null)
+                        if (dict[col.GetNameForDb()] == null)
                         {
-                            dict.Remove(col.Name);
+                            dict.Remove(col.GetNameForDb());
                             continue;
                         }
 
-                        if (dict[col.Name] is long l)
+                        if (dict[col.GetNameForDb()] is long l)
                         {
                             if (l == 0)
                             {
-                                dict.Remove(col.Name);
+                                dict.Remove(col.GetNameForDb());
                                 continue;
                             }
 
@@ -431,7 +350,7 @@ namespace doob.PgSql.Tables
                     }
                 }
 
-                
+
 
             }
 
@@ -439,18 +358,20 @@ namespace doob.PgSql.Tables
                 .AddColumnsFromTableDefinition(TableDefinition)
                 .AddValuesFromObject(dict);
 
-            
-            if (returnValues == null || !returnValues.Any()) {
-                returnValues = TableDefinition.PrimaryKeys().Select(p => p.Name).ToList();
+
+            if (returnValues == null || !returnValues.Any())
+            {
+                returnValues = TableDefinition.PrimaryKeys().Select(p => p.DbName).ToList();
             }
 
-            if(returnValues.Any())
+            if (returnValues.Any())
                 insert.AddClause(Returning.Columns(returnValues.ToArray()));
-            
+
             return Execute().ExecuteReader<Dictionary<string, object>>(insert.GetSqlCommand(TableDefinition)).FirstOrDefault();
         }
 
-        protected List<Dictionary<string, object>> Insert<TAny>(IEnumerable<TAny> documents) {
+        protected List<Dictionary<string, object>> Insert<TAny>(IEnumerable<TAny> documents)
+        {
             return Insert<TAny>(documents, null);
         }
         protected List<Dictionary<string, object>> Insert<TAny>(IEnumerable<TAny> documents, List<string> returnValues)
@@ -462,13 +383,13 @@ namespace doob.PgSql.Tables
                 var dict = document.ToDotNetDictionary();
                 foreach (var col in TableDefinition.Columns())
                 {
-                    if (!col.CanBeNullable && !String.IsNullOrWhiteSpace(col.DefaultValue))
+                    if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
                     {
-                        if (dict.ContainsKey(col.Name))
+                        if (dict.ContainsKey(col.ClrName))
                         {
-                            if (dict[col.Name] == null)
+                            if (dict[col.ClrName] == null)
                             {
-                                dict.Remove(col.Name);
+                                dict.Remove(col.ClrName);
                             }
                         }
                     }
@@ -479,7 +400,7 @@ namespace doob.PgSql.Tables
 
             if (returnValues == null || !returnValues.Any())
             {
-                returnValues = TableDefinition.PrimaryKeys().Select(p => p.Name).ToList();
+                returnValues = TableDefinition.PrimaryKeys().Select(p => p.DbName).ToList();
             }
 
             if (returnValues.Any())
@@ -561,89 +482,18 @@ namespace doob.PgSql.Tables
 
         #endregion
 
-        //#region Execute
-
-        //public int ExecuteNonQuery(string sql) {
-        //    try
-        //    {
-        //        return Execute().ExecuteNonQuery(sql);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        Logger.Error(e, "ExecuteNonQuery", sql);
-        //        throw;
-        //    }
-        //}
-
-        //public IEnumerable<T> ExecuteReader<T>(string sql) {
-        //    return Execute().ExecuteReader<T>(sql);
-        //}
-
-        //#endregion
 
 
-        protected Column[] GetTableSchema()
+
+        public HistoryTable History()
         {
-            var schema = new List<Column>();
-            try {
-                var columns = Execute().ExecuteReader(SQLStatements.GetColumns(_connectionString.TableName, _connectionString.SchemaName)).ToArray();
-                foreach (var column in columns) {
-                    var dict = JSON.ToDictionary(column, true);
-                    var col = new Column();
-                    col.Name = dict["column_name"].ToString();
-                    col.CanBeNullable = dict["is_nullable"].CastToBoolean();
-                    col.DefaultValue = dict["column_default"]?.ToString();
-                    col.Position = dict["ordinal_position"].ToInt() -1;
-                    col.IsPrimaryKey = dict["isprimarykey"].CastToBoolean();
-                    col.MustBeUnique = dict["isunique"].CastToBoolean();
-
-                    var dbType = dict["udt_name"].ToString().Trim();
-                    var dataType = dict["data_type"].ToString();
-                    if (dataType.Equals("ARRAY"))
-                        dbType = $"{dbType}[]";
-
-                    col.DotNetType = PgSqlTypeManager.GetDotNetType(dbType);
-                    schema.Add(col);
-                }
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, "GetTableSchema");
-                throw;
-            }
-            return schema.ToArray();
-        }
-
-        protected NpgsqlDbColumn[] GetTableSchema2()
-        {
-            var schema = new List<NpgsqlDbColumn>();
-            try
-            {
-                var sql = $"Select * from {GetTableName()} LIMIT 1";
-                var con = new DbExecuter(ConnectionString).BuildNpgSqlConnetion();
-
-                using (NpgsqlCommand command = new NpgsqlCommand(sql, con.OpenConnection()))
-                {
-                    using (var reader = command.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-                    {
-                        var columns = reader.GetColumnSchema();
-                        schema.AddRange(columns);
-                    }
-                }
-                con.CloseConnection();
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, "GetTableSchema");
-                throw;
-            }
-            return schema.ToArray();
+            return new HistoryTable(this);
         }
 
 
-
-        public override string ToString() {
-            return $"\"{ConnectionString.SchemaName}\".\"{ConnectionString.TableName}\"";
+        public override string ToString()
+        {
+            return $"\"{_connectionString.SchemaName}\".\"{_connectionString.TableName}\"";
         }
 
     }

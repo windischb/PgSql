@@ -12,15 +12,17 @@
     <Company>-</Company>
     <RepositoryUrl>https://github.com/windischb/PgSql</RepositoryUrl>
     <PackageProjectUrl>https://github.com/windischb/PgSql</PackageProjectUrl>
-    <Version>1.1.1</Version>
+    <Version>2.1.2</Version>
   </PropertyGroup>
 
 
   <ItemGroup>
+    <PackageReference Include="LibLog" Version="5.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2">
     </PackageReference>
     <PackageReference Include="Npgsql" Version="[3.2.5]">
     </PackageReference>
+    <PackageReference Include="Remotion.Linq" Version="2.2.0" />
     <PackageReference Include="System.Reactive.Linq" Version="4.0.0">
     </PackageReference>
   </ItemGroup>

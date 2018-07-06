@@ -28,8 +28,7 @@ namespace PgSql.Tests
             var tbd = TableDefinition.FromType<ConfigurationItem>();
 
             var table = GetSchema().CreateTable("Test1", tbd);
-           table.RegisterEventTrigger(ListenMode.HistoryTableEntry);
-
+          
         }
     }
 

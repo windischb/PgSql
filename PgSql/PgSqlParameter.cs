@@ -1,4 +1,5 @@
 ﻿using System;
+using Newtonsoft.Json.Linq;
 
 namespace doob.PgSql
 {
@@ -8,6 +9,7 @@ namespace doob.PgSql
         public string ColumnName { get; set; }
         public string ParameterName { get; set; }
         public object Value { get; set; }
+        public Type ClrType { get; set; }
         public string OverrideType { get; set; }
         public Column Column { get; set; }
 
@@ -15,7 +17,9 @@ namespace doob.PgSql
         {
             UniqueId = Guid.NewGuid().ToString("N");
             ColumnName = column;
+            ClrType = value?.GetType();
             Value = value;
+
         }
         public PgSqlParameter(string column, object value, string parameterName) : this(column, value)
         {
@@ -31,14 +35,14 @@ namespace doob.PgSql
         {
             if (tableDefinition != null)
             {
-                var col = tableDefinition.GetColumn(ColumnName);
+                var col = tableDefinition.GetColumnBuilderByClrName(ColumnName);
                 if (col != null)
                     Column = col;
             }
             return this;
         }
 
-        internal PgSqlParameter SetColum(ColumnBuilder column)
+        internal PgSqlParameter SetColum(Column column)
         {
 
             Column = column;

@@ -94,8 +94,8 @@ namespace doob.PgSql.Statements
                     sqlCommand.AppendCommand("::text");
 
 
-                if (!String.IsNullOrWhiteSpace(Alias))
-                    sqlCommand.AppendCommand($" AS \"{Alias}\"");
+                //if (!String.IsNullOrWhiteSpace(Alias))
+                //    sqlCommand.AppendCommand($" AS \"{Alias}\"");
             }
 
             return sqlCommand;

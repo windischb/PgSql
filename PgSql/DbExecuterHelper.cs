@@ -11,7 +11,7 @@ namespace doob.PgSql
 {
     internal static class DbExecuterHelper
     {
-        public static object ConvertFromDB(object data, NpgsqlDbColumn column)
+        public static JToken ConvertFromDB(object data, NpgsqlDbColumn column)
         {
 
             if (data == null)
@@ -28,7 +28,7 @@ namespace doob.PgSql
             var npgsqlType = PgSqlTypeManager.GetNpgsqlDbType(postgresType);
 
 
-            object newObject;
+            JToken newObject = null;
             switch (npgsqlType)
             {
                 case NpgsqlDbType.Json:
@@ -36,39 +36,38 @@ namespace doob.PgSql
                     {
                         if (type.IsListType())
                         {
-                            var list = new List<object>();
+                            var list = new JArray();
                             var enumerable = data as IEnumerable;
                             foreach (var o in enumerable)
                             {
                                 var jt = JToken.Parse(o.ToString());
-                                var jo = jt.ToBasicDotNetObject();
-                                list.Add(jo);
+                                //var jo = jt.ToBasicDotNetObject();
+                                list.Add(jt);
                             }
                             newObject = list;
                         }
                         else
                         {
-                            var jt = JToken.Parse(data.ToString());
-                            newObject = jt.ToBasicDotNetObject();
+                            newObject = JToken.Parse(data.ToString());
                         }
                         break;
                     }
                 case NpgsqlDbType.Json | NpgsqlDbType.Array:
                 case NpgsqlDbType.Jsonb | NpgsqlDbType.Array:
                     {
-                        var list = new List<object>();
+                        var list = new JArray();
                         var enumerable = data as IEnumerable;
                         foreach (var o in enumerable)
                         {
                             var jt = JToken.Parse(o.ToString());
-                            var jo = jt.ToBasicDotNetObject();
-                            list.Add(jo);
+                            
+                            list.Add(jt);
                         }
                         newObject = list;
                         break;
                     }
                 default:
-                    newObject = data;
+                    newObject = JToken.FromObject(data);
                     break;
             }
 

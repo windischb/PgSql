@@ -26,10 +26,11 @@ namespace doob.PgSql.Json.ContractResolvers
                 jProperty.Readable = false;
             }
 
-            if (member.IsDefined(typeof(PgSqlColumnAttribute))) {
+            if (member.IsDefined(typeof(PgSqlColumnAttribute)))
+            {
                 jProperty.PropertyName = member.GetCustomAttribute<PgSqlColumnAttribute>().Name ?? member.Name;
             }
-                
+
 
             if (jProperty.Writable)
                 return jProperty;
