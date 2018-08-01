@@ -126,7 +126,7 @@ namespace doob.PgSql
                 type = Type.GetType($"System.{tName}", false, true);
 
             if (type == null)
-                type = PgSqlTypeManager.GetDotNetType(tName);
+                type = PgSqlTypeManager.Global.GetDotNetType(tName);
 
             if (type == null)
                 throw new Exception($"Can't find Type '{typeName}'");

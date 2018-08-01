@@ -10,79 +10,73 @@ namespace doob.PgSql
     {
 
         private ConnectionString _connectionString;
-        public ConnectionString ConnectionString
-        {
-            get
-            {
-                if (_connectionString == null)
-                    _connectionString = ConnectionString.Build();
 
-                return _connectionString;
-            }
-        }
+        public ConnectionString GetConnectionString() => _connectionString.Clone();
 
-        public Database()
-        {
-            _connectionString = ConnectionString.Build();
-        }
-        public Database(string connectionString)
-        {
-            _connectionString = ConnectionString.Build(connectionString);
-        }
+        //public Database() : this(ConnectionString.Build()) { }
+
+        //public Database(string connectionString) : this(ConnectionString.Build(connectionString)) { }
+
+        //public Database(ConnectionStringBuilder connectionBuilder) : this(connectionBuilder.GetConnection()) { }
+
         public Database(ConnectionString connection)
         {
+            var missing = new List<string>();
+
+            if (String.IsNullOrWhiteSpace(connection.DatabaseName))
+                missing.Add(nameof(connection.DatabaseName));
+
+            if (missing.Any())
+                throw new ArgumentNullException($"Missing Options to connect: '{String.Join(", ", missing)}'");
+
             _connectionString = ConnectionString.Build(connection);
-        }
-        public Database(ConnectionStringBuilder connectionBuilder)
-        {
-            _connectionString = ConnectionString.Build(connectionBuilder);
         }
 
         public Server GetServer()
         {
-            return new Server(ConnectionString);
+            return new Server(GetConnectionString());
         }
 
         
 
         public bool Exists()
         {
-            return new Server(ConnectionString).DatabaseExists(ConnectionString.DatabaseName);
+            return new Server(GetConnectionString()).DatabaseExists(GetConnectionString().DatabaseName);
         }
         public Database EnsureExists()
         {
-            GetServer().DatabaseExists(ConnectionString.DatabaseName, true, false);
+            GetServer().DatabaseExists(GetConnectionString().DatabaseName, true, false);
             return this;
         }
         public Database EnsureNotExists()
         {
-            GetServer().DatabaseExists(ConnectionString.DatabaseName, false, true);
+            GetServer().DatabaseExists(GetConnectionString().DatabaseName, false, true);
             return this;
         }
         public Database CreateIfNotExists()
         {
-            return new Server(ConnectionString).CreateDatabase(ConnectionString.DatabaseName, false);
+            return new Server(GetConnectionString()).CreateDatabase(GetConnectionString().DatabaseName, false);
         }
 
 
         public void Drop()
         {
-            GetServer().DropDatabase(ConnectionString.DatabaseName);
+            GetServer().DropDatabase(GetConnectionString().DatabaseName);
         }
         public void Drop(bool force)
         {
-            GetServer().DropDatabase(ConnectionString.DatabaseName, force);
+            GetServer().DropDatabase(GetConnectionString().DatabaseName, force);
         }
         public void Drop(bool force, bool throwIfNotExists)
         {
-            GetServer().DropDatabase(ConnectionString.DatabaseName, force, throwIfNotExists);
+            GetServer().DropDatabase(GetConnectionString().DatabaseName, force, throwIfNotExists);
         }
 
 
         public string[] SchemaList()
         {
             var l = new List<string>();
-            foreach (var sch in new DbExecuter(ConnectionString).ExecuteReader<Dictionary<string, string>>(SQLStatements.SchemaGetAll()))
+            foreach (var sch in new PgSqlExecuter(GetConnectionString()).ExecuteReader<Dictionary<string, string>>(SQLStatements.SchemaGetAll()))
             {
                 l.Add(sch["schema_name"]);
             }
@@ -102,7 +96,7 @@ namespace doob.PgSql
                 throw new ArgumentNullException(nameof(schemaName));
 
 
-            var exists = new DbExecuter(ConnectionString).ExecuteScalar<bool>(SQLStatements.SchemaExists(schemaName));
+            var exists = new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(SQLStatements.SchemaExists(schemaName));
 
             if (!exists && throwIfNotExists)
                 throw new SchemaDoesntExistsException(schemaName);
@@ -116,7 +110,7 @@ namespace doob.PgSql
 
         public Schema GetSchema(string schemaName)
         {
-            var connstr = ConnectionString.Build(ConnectionString).WithSchema(schemaName);
+            var connstr = ConnectionString.Build(GetConnectionString()).WithSchema(schemaName);
             return new Schema(connstr);
         }
 
@@ -135,7 +129,7 @@ namespace doob.PgSql
 
                 var sqlCommand = new PgSqlCommand();
                 sqlCommand.AppendCommand(SQLStatements.SchemaCreate(schemaName, throwIfAlreadyExists));
-                var resp = new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+                var resp = new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
 
                 return GetSchema(schemaName);
             }
@@ -161,7 +155,7 @@ namespace doob.PgSql
 
                 var sqlCommand = new PgSqlCommand();
                 sqlCommand.AppendCommand(SQLStatements.SchemaRename(schemaName, newSchemaName));
-                var resp = new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+                var resp = new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
 
                 return GetSchema(newSchemaName);
             }
@@ -196,7 +190,7 @@ namespace doob.PgSql
             {
                 var sqlCommand = new PgSqlCommand();
                 sqlCommand.AppendCommand(SQLStatements.SchemaDrop(schemaName, force, throwIfNotExists));
-                var resp = new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+                var resp = new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
             }
             catch (PostgresException pex)
             {
@@ -220,7 +214,7 @@ namespace doob.PgSql
             if (String.IsNullOrWhiteSpace(extensionName))
                 throw new ArgumentNullException(nameof(extensionName));
 
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(SQLStatements.ExtensionExists(extensionName));
+            return new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(SQLStatements.ExtensionExists(extensionName));
         }
         public void ExtensionCreate(string extensionName, bool throwIfAlreadyExists)
         {
@@ -229,7 +223,7 @@ namespace doob.PgSql
 
             var sqlCommand = new PgSqlCommand();
             sqlCommand.AppendCommand(SQLStatements.ExtensionCreate(extensionName, throwIfAlreadyExists));
-            new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+            new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
         }
         public void ExtensionDrop(string extensionName, bool throwIfNotExists)
         {
@@ -238,11 +232,11 @@ namespace doob.PgSql
 
             var sqlCommand = new PgSqlCommand();
             sqlCommand.AppendCommand(SQLStatements.ExtensionDrop(extensionName, throwIfNotExists));
-            new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+            new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
         }
         public Dictionary<string, string>[] ExtensionList()
         {
-            return new DbExecuter(ConnectionString).ExecuteReader<Dictionary<string, string>>(SQLStatements.ExtensionList())?.ToArray();
+            return new PgSqlExecuter(GetConnectionString()).ExecuteReader<Dictionary<string, string>>(SQLStatements.ExtensionList())?.ToArray();
         }
         #endregion
 
@@ -251,7 +245,7 @@ namespace doob.PgSql
         {
             if (String.IsNullOrWhiteSpace(domainName))
                 throw new ArgumentNullException(nameof(domainName));
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(SQLStatements.DomainExists(domainName));
+            return new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(SQLStatements.DomainExists(domainName));
         }
         public void DomainCreate(string domainName, string postgresTypeName, bool throwIfExists)
         {
@@ -264,12 +258,12 @@ namespace doob.PgSql
             {
                 if (!DomainExists(domainName))
                 {
-                    new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+                    new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
                 }
             }
             else
             {
-                new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
             }
         }
         public void DomainDrop(string domainName, bool throwIfNotExists)
@@ -279,11 +273,11 @@ namespace doob.PgSql
 
             var sqlCommand = new PgSqlCommand();
             sqlCommand.AppendCommand(SQLStatements.DomainDrop(domainName, throwIfNotExists));
-            new DbExecuter(ConnectionString).ExecuteNonQuery(sqlCommand);
+            new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(sqlCommand);
         }
         public IEnumerable<Dictionary<string, string>> DomainList()
         {
-            return new DbExecuter(ConnectionString).ExecuteReader<Dictionary<string, string>>(SQLStatements.DomainList());
+            return new PgSqlExecuter(GetConnectionString()).ExecuteReader<Dictionary<string, string>>(SQLStatements.DomainList());
         }
         #endregion
 
@@ -293,7 +287,7 @@ namespace doob.PgSql
         public bool FunctionExists(string functionName)
         {
             var command = $"SELECT EXISTS(SELECT 1 FROM information_schema.routines WHERE routines.specific_schema = 'public' AND routines.routine_name = '{functionName}');";
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(command);
+            return new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(command);
         }
 
         #endregion
@@ -303,7 +297,7 @@ namespace doob.PgSql
         public bool EventTriggerExists(string triggerName)
         {
             var command = $"SELECT EXISTS(select 1 from pg_event_trigger where evtname = '{triggerName}');";
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(command);
+            return new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(command);
         }
 
         public void EventTriggerDrop(string triggerName, bool force)
@@ -313,7 +307,7 @@ namespace doob.PgSql
             if (force)
                 command = $"{command} CASCADE";
 
-            new DbExecuter(ConnectionString).ExecuteNonQuery(command);
+            new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(command);
         }
 
         public void RegisterEventTrigger(bool overwriteIfExists = false)
@@ -345,7 +339,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 ";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(function1);
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(function1);
             }
 
             if (!FunctionExists($"{functionName}_dropped") || overwriteIfExists)
@@ -372,7 +366,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 ";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(function2);
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(function2);
 
             }
 
@@ -384,7 +378,7 @@ $$ LANGUAGE plpgsql;
                     EventTriggerDrop($"{functionName}_Trigger", true);
 
                 var trigger1 = $"CREATE EVENT TRIGGER \"{functionName}_Trigger\" ON ddl_command_end EXECUTE PROCEDURE \"{functionName}\"();";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger1);
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(trigger1);
             }
 
             var trigger2Exists = EventTriggerExists($"{functionName}_Trigger_dropped");
@@ -394,7 +388,7 @@ $$ LANGUAGE plpgsql;
                     EventTriggerDrop($"{functionName}_Trigger_dropped", true);
 
                 var trigger2 = $"CREATE EVENT TRIGGER \"{functionName}_Trigger_dropped\" ON sql_drop EXECUTE PROCEDURE \"{functionName}_dropped\"();";
-                new DbExecuter(ConnectionString).ExecuteNonQuery(trigger2);
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(trigger2);
             }
 
         }

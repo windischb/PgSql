@@ -71,7 +71,7 @@ namespace doob.PgSql
         {
             get
             {
-                return _databaseName;
+                return _databaseName ?? _username ?? "postgres";
             }
             internal set
             {

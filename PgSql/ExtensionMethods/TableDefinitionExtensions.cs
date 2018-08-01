@@ -31,9 +31,12 @@ namespace doob.PgSql.ExtensionMethods
             var strBuilder = new StringBuilder();
             tblDefinition.Columns().ToList().ForEach(c =>
             {
+                string typ = c.PgType ?? PgSqlTypeManager.Global.GetPostgresName(c.DotNetType);
+                if (c.DotNetType.IsEnum)
+                {
+                    typ = "Text";
+                }
                 
-                var typ = c.PgType ?? PgSqlTypeManager.GetPostgresName(c.DotNetType);
-
                 var str = $"\"{c.GetNameForDb()}\" {typ}".Trim();
                 if (!String.IsNullOrWhiteSpace(c.DefaultValue))
                 {

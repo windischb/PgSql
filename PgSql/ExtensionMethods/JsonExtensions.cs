@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
 namespace doob.PgSql.ExtensionMethods
@@ -91,5 +92,15 @@ namespace doob.PgSql.ExtensionMethods
             return dict;
         }
 
+
+        public static T ToObject<T>(this JObject jObject)
+        {
+            return JSON.ToObject<T>(jObject);
+        }
+
+        public static async Task<T> ToObjectAsync<T>(this Task<JObject> jObject)
+        {
+            return JSON.ToObject<T>(await jObject);
+        }
     }
 }

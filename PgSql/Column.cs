@@ -42,7 +42,7 @@ namespace doob.PgSql
         [JsonIgnore]
         private NpgsqlDbType? _npgsqlDbType;
 
-        internal NpgsqlDbType GetNpgSqlDbType() => (_npgsqlDbType ?? (_npgsqlDbType = !String.IsNullOrWhiteSpace(PgType) ? PgSqlTypeManager.GetNpgsqlDbType(PgType) : PgSqlTypeManager.GetNpgsqlDbType(DotNetType))).Value;
+        internal NpgsqlDbType? GetNpgSqlDbType() => _npgsqlDbType ?? (_npgsqlDbType = !String.IsNullOrWhiteSpace(PgType) ? PgSqlTypeManager.Global.GetNpgsqlDbType(PgType) : PgSqlTypeManager.Global.GetNpgsqlDbType(DotNetType));
 
 
         internal string GetNameForDb()

@@ -100,7 +100,7 @@ namespace doob.PgSql.QueryGeneration
             _renamingColumns = false;
 
             _table = queryModelVisitor._table;
-            _tableDefinition = _table.TableDefinition;
+            _tableDefinition = _table.PostgresTableDefinition;
             _options = options ?? new ExpressionVisitorOptions();
         }
 

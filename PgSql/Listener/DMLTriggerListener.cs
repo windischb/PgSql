@@ -157,7 +157,6 @@ namespace doob.PgSql.Listener
 
                     if (_currentConnectionState == ListeningConnectionState.Connected)
                     {
-
                         table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
                     }
                     _listenOnTables.Add(table);
@@ -184,7 +183,8 @@ namespace doob.PgSql.Listener
             lock (_listenerLock)
             {
                 _npgsqlConnection?.CloseConnection();
-                _npgsqlConnection = new DbExecuter(_schema.ConnectionString).BuildNpgSqlConnetion();
+
+                _npgsqlConnection = new NpgsqlConnection(_schema.GetConnectionString().ToNpgSqlConnectionString());// new PgSqlExecuter(_schema.GetConnectionString()).BuildNpgSqlConnetion();
                 _npgsqlConnection.Notification += _OnEvent;
 
                 try
@@ -341,7 +341,7 @@ namespace doob.PgSql.Listener
 
         private ObjectTable GetTable(string tableName)
         {
-            var connstr = ConnectionString.Build(_schema.ConnectionString).WithTable(tableName);
+            var connstr = ConnectionString.Build(_schema.GetConnectionString()).WithTable(tableName);
             return new ObjectTable(connstr).NotTyped();
         }
 
@@ -351,13 +351,13 @@ namespace doob.PgSql.Listener
 
         private async Task OnConnectionStateChanges(ListeningConnectionState stateChangeEventArgs)
         {
-            Logger.Info(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+            Logger.Debug(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
 
             switch (stateChangeEventArgs)
             {
                 case ListeningConnectionState.New:
                 {
-                    Logger.Info(() => $"[{Id}] New Connection: {this._schema.ConnectionString}");
+                    Logger.Debug(() => $"[{Id}] New Connection: {this._schema.GetConnectionString()}");
                     break;
                 }
                 case ListeningConnectionState.Error:

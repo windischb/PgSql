@@ -28,7 +28,7 @@ namespace doob.PgSql
 
             Debug.WriteLine(pgCommand.CommandAsPlainText());
 
-            return new DbExecuter(_table.GetConnectionString()).ExecuteScalar<T>(pgCommand);
+            return new PgSqlExecuter(_table.GetConnectionString()).ExecuteScalar<T>(pgCommand);
 
         }
 
@@ -49,7 +49,7 @@ namespace doob.PgSql
 
             Debug.WriteLine(pgCommand.CommandAsPlainText());
 
-            return new DbExecuter(_table.GetConnectionString()).ExecuteReader<T>(pgCommand);
+            return new PgSqlExecuter(_table.GetConnectionString()).ExecuteReader<T>(pgCommand);
 
         }
     }

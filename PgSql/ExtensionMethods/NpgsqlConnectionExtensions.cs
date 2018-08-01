@@ -71,6 +71,7 @@ namespace doob.PgSql.ExtensionMethods
             return connection;
         }
 
+       
         internal static NpgsqlConnection CloseConnection(this NpgsqlConnection connection)
         {
             if (connection == null)
@@ -107,5 +108,6 @@ namespace doob.PgSql.ExtensionMethods
             }
             return connection;
         }
+
     }
 }

@@ -10,26 +10,17 @@ using doob.PgSql.CustomTypes;
 using doob.PgSql.ExtensionMethods;
 using doob.Reflectensions;
 using Newtonsoft.Json.Linq;
+using Npgsql;
+using Npgsql.PostgresTypes;
 using Npgsql.TypeMapping;
 using NpgsqlTypes;
 
 namespace doob.PgSql.TypeMapping
 {
-    public class PgSqlTypeManager
+    public static class INpgsqlTypeMapperExtensions
     {
 
-        private static readonly Lazy<PgSqlTypeManager> global = new Lazy<PgSqlTypeManager>(() => new PgSqlTypeManager(Npgsql.NpgsqlConnection.GlobalTypeMapper));
-        public static PgSqlTypeManager Global => global.Value;
-
-        private INpgsqlTypeMapper _npgsqlTypeMapper;
-        public PgSqlTypeManager(INpgsqlTypeMapper npgsqlTypeMapper)
-        {
-            _npgsqlTypeMapper = npgsqlTypeMapper;
-        }
-
-
-
-        public NpgsqlDbType GetNpgsqlDbType(Type clrType)
+        public static NpgsqlDbType GetNpgsqlDbType(this INpgsqlTypeMapper npgsqlTypeMapper, Type clrType)
         {
             if (clrType == null)
                 return NpgsqlDbType.Unknown;
@@ -55,7 +46,7 @@ namespace doob.PgSql.TypeMapping
             if (clrType.IsDictionaryType())
                 return NpgsqlDbType.Jsonb;
 
-            var foundType = _npgsqlTypeMapper.Mappings.FirstOrDefault(map => map.ClrTypes.Contains(clrType))
+            var foundType = npgsqlTypeMapper.Mappings.FirstOrDefault(map => map.ClrTypes.Contains(clrType))
                 ?.NpgsqlDbType;
 
             if (foundType.HasValue)
@@ -66,7 +57,7 @@ namespace doob.PgSql.TypeMapping
                 if (clrType == typeof(byte[]))
                     return NpgsqlDbType.Bytea;
 
-                return NpgsqlDbType.Array | _npgsqlTypeMapper.GetNpgsqlDbType(clrType.GetElementType());
+                return NpgsqlDbType.Array | npgsqlTypeMapper.GetNpgsqlDbType(clrType.GetElementType());
             }
 
             if (clrType.IsListType())
@@ -80,27 +71,25 @@ namespace doob.PgSql.TypeMapping
 
                 var genericType = t.GetGenericArguments().FirstOrDefault();
 
-                return NpgsqlDbType.Array | _npgsqlTypeMapper.GetNpgsqlDbType(genericType);
+                return NpgsqlDbType.Array | npgsqlTypeMapper.GetNpgsqlDbType(genericType);
             }
 
             if (clrType.GetTypeInfo().IsGenericType && clrType.GetGenericTypeDefinition() == typeof(NpgsqlRange<>))
-                return NpgsqlDbType.Range | _npgsqlTypeMapper.GetNpgsqlDbType(clrType.GetGenericArguments()[0]);
+                return NpgsqlDbType.Range | npgsqlTypeMapper.GetNpgsqlDbType(clrType.GetGenericArguments()[0]);
 
             if (clrType == typeof(DBNull))
                 return NpgsqlDbType.Text;
 
             return NpgsqlDbType.Jsonb;
         }
-
-        public NpgsqlDbType GetNpgsqlDbType(string pgTypeName)
+        public static NpgsqlDbType GetNpgsqlDbType(this INpgsqlTypeMapper npgsqlTypeMapper, string pgTypeName)
         {
             var isArray = pgTypeName.EndsWith("[]");
-            if (isArray)
-            {
+            if (isArray) {
                 pgTypeName = pgTypeName.Substring(0, pgTypeName.Length - 2);
             }
 
-
+           
             NpgsqlDbType npgsqlDbType;
 
             switch (pgTypeName)
@@ -117,7 +106,7 @@ namespace doob.PgSql.TypeMapping
                 }
                 default:
                 {
-                    npgsqlDbType = _npgsqlTypeMapper.Mappings.FirstOrDefault(map => map.PgTypeName.Equals(pgTypeName, StringComparison.CurrentCultureIgnoreCase))?.NpgsqlDbType ?? NpgsqlDbType.Unknown;
+                    npgsqlDbType = npgsqlTypeMapper.Mappings.FirstOrDefault(map => map.PgTypeName.Equals(pgTypeName, StringComparison.CurrentCultureIgnoreCase))?.NpgsqlDbType ?? NpgsqlDbType.Unknown;
                     break;
                 }
             }
@@ -129,38 +118,40 @@ namespace doob.PgSql.TypeMapping
         }
 
 
-        public Type GetDotNetType(string pgTypeName)
-        {
-            var npgsqlDbType = GetNpgsqlDbType(pgTypeName);
-            return GetDotNetType(npgsqlDbType);
-        }
-
-        public string GetPostgresName(Type clrType)
-        {
-            if (clrType == null)
-                return null;
-
-            var npgsqlDbType = GetNpgsqlDbType(clrType);
-            return GetPostgresName(npgsqlDbType);
-        }
-
-        public string GetPostgresName(NpgsqlDbType npgsqlDbType)
+        public static string GetPostgresName(this INpgsqlTypeMapper npgsqlTypeMapper, NpgsqlDbType npgsqlDbType)
         {
             bool isArray = npgsqlDbType.HasFlag(NpgsqlDbType.Array);
 
-            if (isArray)
-            {
+            if (isArray) {
                 npgsqlDbType = npgsqlDbType & ~NpgsqlDbType.Array;
             }
 
-            var pgName = _npgsqlTypeMapper.Mappings.FirstOrDefault(map => map.NpgsqlDbType == npgsqlDbType)?.PgTypeName;
+            var pgName = npgsqlTypeMapper.Mappings.FirstOrDefault(map => map.NpgsqlDbType == npgsqlDbType)?.PgTypeName;
             if (isArray)
                 pgName = $"{pgName}[]";
 
             return pgName;
         }
 
-        public Type GetDotNetType(NpgsqlDbType npgsqlDbType)
+        
+        public static Type GetDotNetType(this INpgsqlTypeMapper npgsqlTypeMapper, string pgTypeName)
+        {
+            var npgsqlDbType = npgsqlTypeMapper.GetNpgsqlDbType(pgTypeName);
+            return npgsqlTypeMapper.GetDotNetType(npgsqlDbType);
+        }
+
+        public static string GetPostgresName(this INpgsqlTypeMapper npgsqlTypeMapper, Type clrType)
+        {
+            if (clrType == null)
+                return null;
+
+            var npgsqlDbType = npgsqlTypeMapper.GetNpgsqlDbType(clrType);
+            return npgsqlTypeMapper.GetPostgresName(npgsqlDbType);
+
+        }
+
+
+        public static Type GetDotNetType(this INpgsqlTypeMapper npgsqlTypeMapper, NpgsqlDbType npgsqlDbType)
         {
 
             Type type = null;
@@ -172,17 +163,15 @@ namespace doob.PgSql.TypeMapping
             npgsqlDbType = npgsqlDbType & ~NpgsqlDbType.Range;
 
 
-            var possibleTypes = _npgsqlTypeMapper.Mappings.Where(map =>
+            var possibleTypes = npgsqlTypeMapper.Mappings.Where(map =>
                 map.NpgsqlDbType == npgsqlDbType && map.ClrTypes != null && map.ClrTypes.Any()).ToList();
 
-            if (possibleTypes.Any())
-            {
+            if (possibleTypes.Any()) {
                 type = possibleTypes.OrderBy(map => map.ClrTypes.Length).First().ClrTypes.First();
             }
 
 
-            if (type == null)
-            {
+            if (type == null) {
                 switch (npgsqlDbType)
                 {
                     case NpgsqlDbType.Bigint:
@@ -344,7 +333,7 @@ namespace doob.PgSql.TypeMapping
             if (type == null)
                 type = typeof(object);
 
-            if (isArray)
+            if(isArray)
                 return typeof(List<>).MakeGenericType(type);
 
             if (isRange)

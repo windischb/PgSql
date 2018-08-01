@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using doob.PgSql.Clauses;
+using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Interfaces;
 
 namespace doob.PgSql.Statements
@@ -76,7 +77,7 @@ namespace doob.PgSql.Statements
 
         public Insert AddValuesFromObject(object @object)
         {
-            return AddNamedValues(global::doob.PgSql.JSON.ToDictionary(@object).ToArray());
+            return AddNamedValues(@object.ToColumsDictionary().ToArray());
         }
 
         public Insert Returning(Returning returning)

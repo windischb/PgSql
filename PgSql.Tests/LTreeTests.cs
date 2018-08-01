@@ -25,7 +25,7 @@ namespace PgSql.Tests
         [Fact]
         public void BasicTest() {
 
-            var tbd = TableDefinition.FromType<ConfigurationItem>();
+            var tbd = Build.TableDefinition<ConfigurationItem>();
 
             var table = GetSchema().CreateTable("Test1", tbd);
           

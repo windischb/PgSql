@@ -16,7 +16,7 @@ namespace doob.PgSql.Statements
         public AddColumnAction(Column column)
         {
             Name = column.DbName;
-            DataType = PgSqlTypeManager.GetPostgresName(column.DotNetType);
+            DataType = PgSqlTypeManager.Global.GetPostgresName(column.DotNetType);
         }
 
         public PgSqlCommand GetSqlCommand(TableDefinition tableDefinition)

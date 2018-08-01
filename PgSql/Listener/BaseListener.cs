@@ -50,7 +50,7 @@ namespace doob.PgSql.Listener
             _listeningConnection?.CloseConnection();
             _connectionStateChangeSubject.OnNext(ListeningConnectionState.Connecting);
 
-            _listeningConnection = new DbExecuter(_connectionBuilder).BuildNpgSqlConnetion();
+            _listeningConnection = new NpgsqlConnection(_connectionBuilder.GetConnection().ToNpgSqlConnectionString());// new DbExecuter(_connectionBuilder).BuildNpgSqlConnetion();
             _listeningConnection.Notification += _OnEvent;
 
             lock (_listenerLock)

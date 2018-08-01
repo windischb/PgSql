@@ -80,13 +80,13 @@ namespace doob.PgSql.Statements
 
         public Select AddColumnsFromType<T>()
         {
-            var tbd = TableDefinition.FromType<T>();
+            var tbd = Build.TableDefinition<T>();
             return AddColumnsFromTableDefinition(tbd);
         }
 
         public Select AddColumnsFromType(Type type)
         {
-            var tbd = TableDefinition.FromType(type);
+            var tbd =Build.TableDefinition(type);
             return AddColumnsFromTableDefinition(tbd);
         }
 

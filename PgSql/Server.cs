@@ -10,27 +10,24 @@ namespace doob.PgSql
     {
         private readonly ConnectionStringBuilder _configuration;
 
-        public Server()
+        internal Server() : this(ConnectionString.Build()) { }
+
+        internal Server(string connectionString) : this(ConnectionString.Build(connectionString)) { }
+
+        internal Server(ConnectionStringBuilder connectionBuilder) : this(connectionBuilder.GetConnection()) { }
+
+        internal Server(ConnectionString connection)
         {
-            _configuration = ConnectionString.Build().WithDatabase("postgres");
-        }
-        public Server(string connectionstring)
-        {
-            _configuration = ConnectionString.Build(connectionstring).WithDatabase("postgres");
-        }
-        public Server(ConnectionString connection)
-        {
+            if (String.IsNullOrWhiteSpace(connection.ServerName))
+                throw new ArgumentException(nameof(connection.ServerName));
+
             _configuration = ConnectionString.Build(connection).WithDatabase("postgres");
-        }
-        public Server(ConnectionStringBuilder connectionBuilder)
-        {
-            _configuration = ConnectionString.Build(connectionBuilder).WithDatabase("postgres");
         }
 
         public List<Dictionary<string, object>> GetServerSetting()
         {
             var settings = new List<Dictionary<string, object>>();
-            foreach (var expandableObject in new DbExecuter(_configuration).ExecuteReader(SQLStatements.GetAllSettings()))
+            foreach (var expandableObject in new PgSqlExecuter(_configuration).ExecuteReader(SQLStatements.GetAllSettings()))
             {
                 settings.Add(JSON.ToObject<Dictionary<string, object>>(expandableObject));
             }
@@ -44,7 +41,7 @@ namespace doob.PgSql
         }
         public IEnumerable<string> GetDatabaseList()
         {
-            foreach (var expandableObject in new DbExecuter(_configuration).ExecuteReader(SQLStatements.DatabaseListAll()))
+            foreach (var expandableObject in new PgSqlExecuter(_configuration).ExecuteReader(SQLStatements.DatabaseListAll()))
             {
                 var obj = JSON.ToObject<Dictionary<string, object>>(expandableObject);
                 yield return obj["datname"].ToString();
@@ -65,7 +62,7 @@ namespace doob.PgSql
             if (String.IsNullOrWhiteSpace(database))
                 throw new ArgumentNullException(nameof(database));
 
-            var exists = new DbExecuter(_configuration).ExecuteScalar<bool>(SQLStatements.DatabaseExists(database));
+            var exists = new PgSqlExecuter(_configuration).ExecuteScalar<bool>(SQLStatements.DatabaseExists(database));
 
             if (!exists && throwIfNotExists)
                 throw new DatabaseDoesntExistsException(database);
@@ -92,7 +89,7 @@ namespace doob.PgSql
                 {
                     try
                     {
-                        new DbExecuter(_configuration).ExecuteNonQuery(SQLStatements.DatabaseCreate(database));
+                        new PgSqlExecuter(_configuration).ExecuteNonQuery(SQLStatements.DatabaseCreate(database));
                     }
                     catch (PostgresException pex)
                     {
@@ -129,7 +126,7 @@ namespace doob.PgSql
             if (force)
                 DropDatabaseConnections(databaseName);
 
-            new DbExecuter(_configuration).ExecuteNonQuery(SQLStatements.DatabaseDrop(databaseName, throwIfNotExists));
+            new PgSqlExecuter(_configuration).ExecuteNonQuery(SQLStatements.DatabaseDrop(databaseName, throwIfNotExists));
         }
 
         public void DropDatabaseConnections(string databaseName)
@@ -137,14 +134,14 @@ namespace doob.PgSql
             if (String.IsNullOrWhiteSpace(databaseName))
                 throw new ArgumentNullException(nameof(databaseName));
 
-            new DbExecuter(_configuration).ExecuteNonQuery(SQLStatements.DatabaseConnectionsDrop(databaseName));
+            new PgSqlExecuter(_configuration).ExecuteNonQuery(SQLStatements.DatabaseConnectionsDrop(databaseName));
         }
         public IEnumerable<object> GetDatabaseConnections(string databaseName)
         {
             if (String.IsNullOrWhiteSpace(databaseName))
                 throw new ArgumentNullException(nameof(databaseName));
 
-            foreach (var expandableObject in new DbExecuter(_configuration).ExecuteReader<ExpandoObject>(SQLStatements.DatabaseConnectionsGet(databaseName)))
+            foreach (var expandableObject in new PgSqlExecuter(_configuration).ExecuteReader<ExpandoObject>(SQLStatements.DatabaseConnectionsGet(databaseName)))
             {
                 yield return expandableObject;
             }

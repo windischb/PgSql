@@ -21,7 +21,7 @@ namespace PgSql.Tests
         [Fact]
         public void Test1()
         {
-            var tbd = TableDefinition.FromType<TypeTestModel>();
+            var tbd = Build.TableDefinition<TypeTestModel>();
 
 
             var q = Where.Create<TypeTestModel>().Not().Eq(t => t.String, "test"); //.And().Not().Eq(t => t.String, "test2");

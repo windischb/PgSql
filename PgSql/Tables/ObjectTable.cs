@@ -1,21 +1,40 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using doob.PgSql.Clauses;
+using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Helper;
 using doob.PgSql.Interfaces;
 using doob.PgSql.Interfaces.Where;
+using doob.PgSql.Interfaces.Where.NotTyped;
 using doob.PgSql.Statements;
 
 namespace doob.PgSql.Tables
 {
-    public class ObjectTable : BaseTable<ObjectTable, object>, ITable
+    public class ObjectTable : BaseTable<ObjectTable, object>
     {
 
-        public ObjectTable() : base() { }
-        public ObjectTable(string connectionstring) : base(connectionstring) { }
-        public ObjectTable(ConnectionString connection) : base(connection) { }
-        public ObjectTable(ConnectionStringBuilder connectionBuilder) : base(connectionBuilder ){ }
+        public TableDefinition TableDefinition { get; }
 
-        public new TableDefinition TableDefinition => base.TableDefinition;
+        public ObjectTable(ConnectionString connection) : this(connection, new TableDefinition()) { }
+
+        public ObjectTable(ConnectionString connection, TableDefinition createDefinition) : base(connection)
+        {
+            TableDefinition = createDefinition;
+
+        }
+
+        public void CreateIfNotExists(bool throwIfAlreadyExists = false)
+        {
+            if (!GetSchema().CreateIfNotExists().TableExists(GetConnectionString().TableName))
+                _createTable(TableDefinition, throwIfAlreadyExists);
+        }
+
+        public void UpdateTableDefinition()
+        {
+            throw new NotImplementedException();
+        }
 
         public new TypedTable<T> Typed<T>()
         {
@@ -30,67 +49,80 @@ namespace doob.PgSql.Tables
 
         #region Query
 
-        public Dictionary<string, object>[] Query(params ISelectMember[] clauses)
+        public IEnumerable<Dictionary<string, object>> Query(Func<IWhereClauseLogicalBase, IWhere> where)
         {
-            var selectStatement = new Select().AddColumnsFromTableDefinition(TableDefinition);
-            if (clauses != null)
-                selectStatement.AddClause(clauses);
-
-            return Query(selectStatement);
+            var q = where.Invoke(Where.Create());
+            return Query(q);
         }
 
-        public new Dictionary<string, object>[] Query(Select select)
+        public IEnumerable<Dictionary<string, object>> Query(params ISelectMember[] clauses)
         {
-            return base.Query(select).Select(JSON.ToObject<Dictionary<string, object>>).ToArray();
+            return base._Query(clauses).Select(item => JSON.ToDictionary(item));
         }
 
-        public new Dictionary<string, object>[] Query(string sqlQuery)
+        public Dictionary<string, object> QueryByPrimaryKey(object value)
         {
-            return base.Query(sqlQuery).Select(JSON.ToObject<Dictionary<string, object>>).ToArray();
+            return base._QueryByPrimaryKey(value)?.ToObject<Dictionary<string, object>>();
         }
 
 
-        public new Dictionary<string, object> QueryByPrimaryKey(object value)
+        public Task<IEnumerable<Dictionary<string, object>>> QueryAsync(Func<IWhereClauseLogicalBase, IWhere> where)
         {
-            return JSON.ToDictionary(base.QueryByPrimaryKey(value));
+            var q = where.Invoke(Where.Create());
+            return QueryAsync(q);
+        }
+
+        public Task<IEnumerable<Dictionary<string, object>>> QueryAsync(params ISelectMember[] clauses)
+        {
+            return base._QueryAsync(clauses)?.SelectAsync(item => JSON.ToDictionary(item));
+        }
+
+        public Task<Dictionary<string, object>> QueryByPrimaryKeyAsync(object value)
+        {
+            return base._QueryByPrimaryKeyAsync(value)?.ToObjectAsync<Dictionary<string, object>>();
         }
 
 
         #endregion
 
 
+
         #region Insert
 
-        public new Dictionary<string, object> Insert(object document)
+        public Dictionary<string, object> Insert(object document, List<string> returnValues = null)
         {
-            return base.Insert(document);
+            return JSON.ToObject<Dictionary<string, object>>(base.Insert(document, returnValues));
         }
 
-        public new Dictionary<string, object> Insert(object document, List<string> returnValues)
+        public IEnumerable<Dictionary<string, object>> Insert(IEnumerable<object> documents, List<string> returnValues = null)
         {
-            return base.Insert(document, returnValues);
+            return base.Insert(documents, returnValues).Select(JSON.ToObject<Dictionary<string, object>>);
         }
 
-
-        public List<Dictionary<string, object>> Insert(IEnumerable<object> documents)
+        public async Task<Dictionary<string, object>> InsertAsync(object document, List<string> returnValues = null)
         {
-            return base.Insert((IEnumerable<object>)documents);
+            return JSON.ToObject<Dictionary<string, object>>(await base.InsertAsync(document, returnValues));
         }
-
-        public List<Dictionary<string, object>> Insert(IEnumerable<object> documents, List<string> returnValues)
+        public Task<IEnumerable<Dictionary<string, object>>> InsertAsync(IEnumerable<object> documents, List<string> returnValues = null)
         {
-            return base.Insert((IEnumerable<object>)documents, returnValues);
+            return base.InsertAsync(documents, returnValues).SelectAsync(JSON.ToObject<Dictionary<string, object>>);
         }
-
 
         #endregion
 
 
         #region Update
 
-        public new object Update(IWhere query, object document)
+        protected int Update(Func<IWhereClauseLogicalBase, IWhere> where, object document)
         {
-            return base.Update(query, document);
+            var q = where.Invoke(Where.Create());
+            return Update(q, document);
+        }
+
+        protected Task<int> UpdateAsync(Func<IWhereClauseLogicalBase, IWhere> where, object document)
+        {
+            var q = where.Invoke(Where.Create());
+            return UpdateAsync(q, document);
         }
 
         #endregion
@@ -98,9 +130,16 @@ namespace doob.PgSql.Tables
 
         #region Delete
 
-        public new int Delete(IWhere query)
+        protected int Delete(Func<IWhereClauseLogicalBase, IWhere> where)
         {
-            return base.Delete(query);
+            var q = where.Invoke(Where.Create());
+            return Delete(q);
+        }
+
+        protected Task<int> DeleteAsync(Func<IWhereClauseLogicalBase, IWhere> where)
+        {
+            var q = where.Invoke(Where.Create());
+            return DeleteAsync(q);
         }
 
         #endregion
@@ -108,9 +147,16 @@ namespace doob.PgSql.Tables
 
         #region Exists
 
-        public bool Exists(IWhere query)
+        public virtual bool Exists(Func<IWhereClauseLogicalBase, IWhere> where)
         {
-            return base.Exists(query, null);
+            var q = where.Invoke(Where.Create());
+            return Exists(q);
+        }
+
+        public virtual Task<bool> ExistsAsync(Func<IWhereClauseLogicalBase, IWhere> where)
+        {
+            var q = where.Invoke(Where.Create());
+            return ExistsAsync(q);
         }
 
         #endregion

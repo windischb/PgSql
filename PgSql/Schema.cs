@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using doob.PgSql.CustomTypes;
@@ -14,51 +15,52 @@ namespace doob.PgSql
     public class Schema
     {
         private ConnectionString _connectionString;
-        public ConnectionString ConnectionString
-        {
-            get
-            {
-                if (_connectionString == null)
-                    _connectionString = ConnectionString.Build();
 
-                return _connectionString;
-            }
-        }
+        public ConnectionString GetConnectionString() => _connectionString.Clone();
+       
+        public Schema() : this(ConnectionString.Build()) { }
+        
 
-        public Schema()
-        {
-            _connectionString = ConnectionString.Build();
-        }
-        public Schema(string connectionString) 
-        {
-            _connectionString = ConnectionString.Build(connectionString);
-        }
+        public Schema(string connectionString) : this(ConnectionString.Build(connectionString)) { }
+
+       
+        public Schema(ConnectionStringBuilder connectionBuilder) : this(connectionBuilder.GetConnection()) { }
+
         public Schema(ConnectionString connection)
         {
+            var missing = new List<string>();
+
+            if (String.IsNullOrWhiteSpace(connection.DatabaseName))
+                missing.Add(nameof(connection.DatabaseName));
+
+            if (String.IsNullOrWhiteSpace(connection.SchemaName))
+                missing.Add(nameof(connection.SchemaName));
+
+            if (missing.Any())
+                throw new ArgumentNullException($"Missing Options to connect: '{String.Join(", ", missing)}'");
+
             _connectionString = ConnectionString.Build(connection);
         }
-        public Schema(ConnectionStringBuilder connectionBuilder)
-        {
-            _connectionString = ConnectionString.Build(connectionBuilder);
-        }
+
+
 
         public Server GetServer()
         {
-            return new Server(ConnectionString);
+            return new Server(GetConnectionString());
         }
         public Database GetDatabase()
         {
-            return new Database(ConnectionString);
+            return new Database(GetConnectionString());
         }
 
        
         public bool Exists()
         {
-            return GetDatabase().SchemaExists(ConnectionString.SchemaName);
+            return GetDatabase().SchemaExists(GetConnectionString().SchemaName);
         }
         public Schema EnsureExists()
         {
-            GetDatabase().SchemaExists(ConnectionString.SchemaName, true, false);
+            GetDatabase().SchemaExists(GetConnectionString().SchemaName, true, false);
             return this;
         }
 
@@ -73,7 +75,7 @@ namespace doob.PgSql
             bool exists = false;
             do
             {
-                exists = GetDatabase().EnsureExists().SchemaExists(ConnectionString.SchemaName, false, false);
+                exists = GetDatabase().EnsureExists().SchemaExists(GetConnectionString().SchemaName, false, false);
 
                 if (!exists)
                     Task.Delay(checkInterval).GetAwaiter().GetResult();
@@ -84,33 +86,33 @@ namespace doob.PgSql
         }
         public Schema EnsureNotExists()
         {
-            GetDatabase().SchemaExists(ConnectionString.SchemaName, false, true);
+            GetDatabase().SchemaExists(GetConnectionString().SchemaName, false, true);
             return this;
         }
         public Schema CreateIfNotExists()
         {
-            return new Database(ConnectionString).CreateIfNotExists()
-                .CreateSchema(ConnectionString.SchemaName, false);
+            return new Database(GetConnectionString()).CreateIfNotExists()
+                .CreateSchema(GetConnectionString().SchemaName, false);
         }
 
 
         public void Drop()
         {
-            GetDatabase().SchemaDrop(ConnectionString.SchemaName);
+            GetDatabase().SchemaDrop(GetConnectionString().SchemaName);
         }
         public void Drop(bool force)
         {
-            GetDatabase().SchemaDrop(ConnectionString.SchemaName, force);
+            GetDatabase().SchemaDrop(GetConnectionString().SchemaName, force);
         }
         public void Drop(bool force, bool throwIfNotExists)
         {
-            GetDatabase().SchemaDrop(ConnectionString.SchemaName, force, throwIfNotExists);
+            GetDatabase().SchemaDrop(GetConnectionString().SchemaName, force, throwIfNotExists);
         }
 
         public string[] TableList()
         {
             var l = new List<string>();
-            foreach (var exp in new DbExecuter(ConnectionString).ExecuteReader(SQLStatements.GetTables(ConnectionString.SchemaName)))
+            foreach (var exp in new PgSqlExecuter(GetConnectionString()).ExecuteReader(SQLStatements.GetTables(GetConnectionString().SchemaName)))
             {
                 var obj = JSON.ToObject<Dictionary<string, object>>(exp);
                 l.Add(obj["table_name"].ToString());
@@ -132,7 +134,7 @@ namespace doob.PgSql
                 throw new ArgumentNullException(nameof(tableName));
 
 
-            var exists = new DbExecuter(ConnectionString).ExecuteScalar<bool>(SQLStatements.TableExists(tableName, ConnectionString.SchemaName));
+            var exists = new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(SQLStatements.TableExists(tableName, GetConnectionString().SchemaName));
 
 
             if (!exists && throwIfNotExists)
@@ -147,7 +149,7 @@ namespace doob.PgSql
 
         public ObjectTable GetTable(string tableName)
         {
-            var connstr = ConnectionString.Build(ConnectionString).WithTable(tableName);
+            var connstr = ConnectionString.Build(GetConnectionString()).WithTable(tableName);
             return new ObjectTable(connstr).NotTyped();
         }
         public ObjectTable CreateTable(string tableName, TableDefinition definition, bool throwIfAlreadyExists)
@@ -164,14 +166,20 @@ namespace doob.PgSql
 
         public TypedTable<T> GetTable<T>(string tableName)
         {
-            var connstr = ConnectionString.Build(ConnectionString).WithTable(tableName);
+            var connstr = ConnectionString.Build(GetConnectionString()).WithTable(tableName);
             var tbl = new TypedTable<T>(connstr);
             return tbl;
         }
         public TypedTable<T> CreateTable<T>(string tableName, bool throwIfAlreadyExists = false)
         {
-            var td = TableDefinition.FromType<T>();
+            var td = Build.TableDefinition<T>();
             _createTable(tableName, td, throwIfAlreadyExists);
+            return GetTable<T>(tableName);
+        }
+        public async Task<TypedTable<T>> CreateTableAsync<T>(string tableName, bool throwIfAlreadyExists = false)
+        {
+            var td = Build.TableDefinition<T>();
+            await _createTableAsync(tableName, td, throwIfAlreadyExists);
             return GetTable<T>(tableName);
         }
         public TypedTable<T> CreateTable<T>(string tableName, TableDefinition<T> definition, bool throwIfAlreadyExists = false)
@@ -194,7 +202,7 @@ namespace doob.PgSql
 
             try
             {
-                new DbExecuter(ConnectionString).ExecuteNonQuery(SQLStatements.RemoveTable(tableName, ConnectionString.SchemaName, throwIfNotExists));
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(SQLStatements.RemoveTable(tableName, GetConnectionString().SchemaName, throwIfNotExists));
             }
             catch (PostgresException ex) when (ex.SqlState == "42P01")
             {
@@ -234,8 +242,48 @@ namespace doob.PgSql
 
             try
             {
-                var tablebuilder = definition.GetSqlDefinition(tableName, ConnectionString.SchemaName, throwIfAlreadyExists);
-                return new DbExecuter(ConnectionString).ExecuteScalar(tablebuilder);
+                var tablebuilder = definition.GetSqlDefinition(tableName, GetConnectionString().SchemaName, throwIfAlreadyExists);
+                return new PgSqlExecuter(GetConnectionString()).ExecuteScalar(tablebuilder);
+            }
+            catch (PostgresException ex) when (ex.SqlState == "42P07")
+            {
+                throw new TableAlreadyExistsException(tableName);
+            }
+
+        }
+
+        private Task _createTableAsync(string tableName, TableDefinition definition, bool throwIfAlreadyExists)
+        {
+            if (String.IsNullOrWhiteSpace(tableName))
+                throw new ArgumentNullException(nameof(tableName));
+
+            tableName = $"\"{tableName.Trim("\"".ToCharArray())}\"";
+
+            var pd = GetDatabase();
+
+            foreach (var column in definition.Columns())
+            {
+                if (column.DotNetType == typeof(Guid?) || column.DotNetType == typeof(Guid))
+                {
+                    if (!pd.ExtensionExists("uuid-ossp"))
+                        pd.ExtensionCreate("uuid-ossp", false);
+                }
+
+
+                if (column.DotNetType == typeof(PgSqlLTree))
+                {
+                    if (!pd.ExtensionExists("ltree"))
+                        pd.ExtensionCreate("ltree", false);
+                }
+
+
+            }
+
+
+            try
+            {
+                var tablebuilder = definition.GetSqlDefinition(tableName, GetConnectionString().SchemaName, throwIfAlreadyExists);
+                return new PgSqlExecuter(GetConnectionString()).ExecuteScalarAsync(tablebuilder);
             }
             catch (PostgresException ex) when (ex.SqlState == "42P07")
             {
@@ -255,8 +303,8 @@ namespace doob.PgSql
 
             inheritFromTable = $"\"{inheritFromTable}\"";
 
-            var tblName = $"{(!String.IsNullOrWhiteSpace(ConnectionString.SchemaName) ? $"{ConnectionString.SchemaName}." : "")}{tableName}";
-            var inherittblName = $"{(!String.IsNullOrWhiteSpace(ConnectionString.SchemaName) ? $"{ConnectionString.SchemaName}." : "")}{inheritFromTable}";
+            var tblName = $"{(!String.IsNullOrWhiteSpace(GetConnectionString().SchemaName) ? $"{GetConnectionString().SchemaName}." : "")}{tableName}";
+            var inherittblName = $"{(!String.IsNullOrWhiteSpace(GetConnectionString().SchemaName) ? $"{GetConnectionString().SchemaName}." : "")}{inheritFromTable}";
             try
             {
 
@@ -274,7 +322,7 @@ namespace doob.PgSql
                 }
                 strBuilder.Append($") INHERITS ({inherittblName})");
 
-                return new DbExecuter(ConnectionString).ExecuteScalar(strBuilder.ToString());
+                return new PgSqlExecuter(GetConnectionString()).ExecuteScalar(strBuilder.ToString());
             }
             catch (PostgresException ex) when (ex.SqlState == "42P07")
             {
@@ -303,8 +351,8 @@ namespace doob.PgSql
 
         public bool FunctionExists(string functionName)
         {
-            var command = $"SELECT EXISTS(SELECT 1 FROM information_schema.routines WHERE routines.specific_schema = '{ConnectionString.SchemaName}' AND routines.routine_name = '{functionName}');";
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(command);
+            var command = $"SELECT EXISTS(SELECT 1 FROM information_schema.routines WHERE routines.specific_schema = '{GetConnectionString().SchemaName}' AND routines.routine_name = '{functionName}');";
+            return new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(command);
         }
 
         #endregion
@@ -414,19 +462,19 @@ namespace doob.PgSql
         #region Triggers
         public bool TriggersForTriggerFunctionExists(string triggerFunctionName)
         {
-            return new DbExecuter(ConnectionString).ExecuteScalar<bool>(SQLStatements.TriggerExistsForTriggerFunction(triggerFunctionName));
+            return new PgSqlExecuter(GetConnectionString()).ExecuteScalar<bool>(SQLStatements.TriggerExistsForTriggerFunction(triggerFunctionName));
         }
 
         public void DropTriggerFunction(string triggerFunctionName)
         {
-            new DbExecuter(ConnectionString).ExecuteNonQuery(SQLStatements.DropTriggerFunction(triggerFunctionName));
+            new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(SQLStatements.DropTriggerFunction(triggerFunctionName));
         }
 
         public void CreateTriggerFunction(bool overwriteIfExists = false)
         {
             if (!FunctionExists("Notify-TableEvent") || overwriteIfExists)
             {
-                new DbExecuter(ConnectionString).ExecuteNonQuery(TableStatements.BuildTriggerFunction(ConnectionString.SchemaName, "Notify-TableEvent"));
+                new PgSqlExecuter(GetConnectionString()).ExecuteNonQuery(TableStatements.BuildTriggerFunction(GetConnectionString().SchemaName, "Notify-TableEvent"));
             }
         }
         #endregion

@@ -65,25 +65,6 @@ namespace doob.PgSql.Helper
             
         }
 
-
-        //private IEnumerable<X509Certificate2> GetCertificatesFromStore(string certificateName, bool validOnly = false)
-        //{
-        //    var storeName = (StoreName)Enum.Parse(typeof(StoreName), _storeName, true);
-        //    var storeLocation = (StoreLocation)Enum.Parse(typeof(StoreLocation), _storeLocation, true);
-        //    X509Store store = new X509Store(storeName, storeLocation);
-        //    store.Open(OpenFlags.ReadOnly);
-        //    X509Certificate2Collection certificatesInStore = store.Certificates;
-        //    var findResult = certificatesInStore.Find(X509FindType.FindBySubjectName, certificateName, validOnly);
-
-        //    List<X509Certificate2> certificates = new List<X509Certificate2>();
-        //    foreach (X509Certificate2 x509Certificate2 in findResult)
-        //    {
-        //        certificates.Add(x509Certificate2);
-        //    }
-        //    store.Dispose();
-        //    return certificates;
-        //}
-
         private string EncryptString(X509Certificate2 x509, string stringToEncrypt)
         {
             if (x509 == null || string.IsNullOrEmpty(stringToEncrypt))
@@ -97,16 +78,16 @@ namespace doob.PgSql.Helper
             return Convert.ToBase64String(encryptedBytes);
         }
 
-        private string DecryptString(X509Certificate2 x509, string stringTodecrypt)
+        private string DecryptString(X509Certificate2 x509, string stringToDecrypt)
         {
-            if (x509 == null || string.IsNullOrEmpty(stringTodecrypt))
+            if (x509 == null || string.IsNullOrEmpty(stringToDecrypt))
                 throw new Exception("A x509 certificate and string for decryption must be provided");
 
             if (!x509.HasPrivateKey)
                 throw new Exception("x509 certicate does not contain a private key for decryption");
 
             var rsa = x509.GetRSAPrivateKey();
-            byte[] bytestodecrypt = Convert.FromBase64String(stringTodecrypt);
+            byte[] bytestodecrypt = Convert.FromBase64String(stringToDecrypt);
             byte[] plainbytes = rsa.Decrypt(bytestodecrypt, RSAEncryptionPadding.OaepSHA1);
             System.Text.ASCIIEncoding enc = new System.Text.ASCIIEncoding();
             return enc.GetString(plainbytes);

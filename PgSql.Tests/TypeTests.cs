@@ -24,7 +24,7 @@ namespace PgSql.Tests
 
             
             
-            var tbd = TableDefinition.FromType<TypeTestModel>();
+            var tbd = Build.TableDefinition<TypeTestModel>();
 
             var table = GetSchema().CreateTable("Test1", tbd);
             var model = new TypeTestModel();
@@ -49,7 +49,7 @@ namespace PgSql.Tests
         [Fact]
         public void Test2()
         {
-            var tbd = TableDefinition.FromType<TypeTestModel>();
+            var tbd = Build.TableDefinition<TypeTestModel>();
 
             var table = GetSchema().CreateTable("Test1", tbd);
             var model = new TypeTestModel();
@@ -67,7 +67,7 @@ namespace PgSql.Tests
             table.Insert(model);
 
 
-            var executor = new DbExecuter(table.GetConnectionString());
+            var executor = new PgSqlExecuter(table.GetConnectionString());
 
             
             var resp = executor.ExecuteReader<TypeTestModel>($"SELECT * FROM {table}");

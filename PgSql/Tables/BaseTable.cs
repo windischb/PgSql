@@ -2,10 +2,15 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 using doob.PgSql.Clauses;
+using doob.PgSql.CustomTypes;
+using doob.PgSql.Exceptions;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Helper;
+using doob.PgSql.Interfaces;
 using doob.PgSql.Interfaces.Where;
+using doob.PgSql.Interfaces.Where.NotTyped;
 using doob.PgSql.Listener;
 using doob.PgSql.Logging;
 using doob.PgSql.Statements;
@@ -23,14 +28,12 @@ namespace doob.PgSql.Tables
 
         private readonly ConnectionString _connectionString;
 
-        //protected Lazy<TableDefinition<TItem>> LazyTableDefinition => new Lazy<TableDefinition<TItem>>(() =>
-        //{
-        //    return PgSql.TableDefinition.FromTable<TItem>(this);
-        //});
+        private readonly object _tdLock = new object();
 
-        private object _tdLock = new object();
-        private TableDefinition<TItem> _tableDefinition;
-        protected TableDefinition<TItem> GetTableDefinition(bool force = false)
+        protected TableDefinition<TItem> _tableDefinition;
+
+
+        protected TableDefinition<TItem> GetPostgresTableDefinition(bool force = false)
         {
             if (force) {
                 return (_tableDefinition = TableDefinition.FromTable<TItem>(this));
@@ -46,9 +49,9 @@ namespace doob.PgSql.Tables
         }
         
 
-        public TableDefinition TableDefinition => GetTableDefinition();
+        public TableDefinition PostgresTableDefinition => GetPostgresTableDefinition();
 
-        private DbExecuter _dbExecuter;
+        private PgSqlExecuter _pgSqlExecuter;
 
         protected SecureDataManager SecureDataManager;
 
@@ -60,21 +63,32 @@ namespace doob.PgSql.Tables
         protected BaseTable(Action<ConnectionStringBuilder> connectionBuilder) : this(connectionBuilder.InvokeAction()) { }
         protected BaseTable(ConnectionString connection)
         {
+            var missing = new List<string>();
+
+            if(String.IsNullOrWhiteSpace(connection.DatabaseName))
+                missing.Add(nameof(connection.DatabaseName));
+
+            if (String.IsNullOrWhiteSpace(connection.SchemaName))
+                missing.Add(nameof(connection.SchemaName));
 
             if (String.IsNullOrWhiteSpace(connection.TableName))
-                throw new ArgumentException(nameof(connection.TableName));
+                missing.Add(nameof(connection.TableName));
 
-            _connectionString = ConnectionString.Build(connection);
+            if(missing.Any())
+                throw new ArgumentNullException($"Missing Options to connect: '{String.Join(", ", missing)}'");
+
+           _connectionString = ConnectionString.Build(connection);
 
         }
 
         #endregion
 
+        
 
 
-        protected DbExecuter Execute()
+        protected PgSqlExecuter Execute()
         {
-            return _dbExecuter ?? (_dbExecuter = new DbExecuter(_connectionString));
+            return _pgSqlExecuter ?? new PgSqlExecuter(_connectionString);
         }
 
 
@@ -113,6 +127,8 @@ namespace doob.PgSql.Tables
 
         #endregion
 
+
+        
 
         public Schema Drop(bool throwIfNotExists = false)
         {
@@ -159,7 +175,7 @@ namespace doob.PgSql.Tables
 
 
 
-        public TypedTable<TOut> Typed<TOut>()
+        protected internal TypedTable<TOut> Typed<TOut>()
         {
             var tbl = new TypedTable<TOut>(_connectionString)
             {
@@ -168,7 +184,7 @@ namespace doob.PgSql.Tables
             return tbl;
 
         }
-        public ObjectTable NotTyped()
+        protected internal ObjectTable NotTyped()
         {
             var tbl = new ObjectTable(_connectionString)
             {
@@ -184,204 +200,213 @@ namespace doob.PgSql.Tables
 
         public TTable BeginTransaction()
         {
-            var tbl = (TTable)Activator.CreateInstance(typeof(TTable), _connectionString);
-            tbl.Execute().BeginTransaction();
-            return tbl;
+            this._pgSqlExecuter = Execute();
+            this._pgSqlExecuter?.BeginTransaction();
+            return (TTable)this;
         }
 
         public TTable CommitTransaction()
         {
-            Execute().CommitTransaction();
+            this._pgSqlExecuter?.CommitTransaction();
             return (TTable)this;
         }
 
         public TTable RollbackTransaction()
         {
-            Execute().RollbackTransaction();
+            this._pgSqlExecuter?.RollbackTransaction();
             return (TTable)this;
         }
 
         public TTable EndTransaction()
         {
-            Execute().EndTransaction();
+            this._pgSqlExecuter?.EndTransaction();
+            this._pgSqlExecuter = null;
             return (TTable)this;
         }
 
 
+        protected object _createTable(TableDefinition tableDefinition, bool throwIfAlreadyExists)
+        {
+           
+            var pd = GetDatabase();
+
+            foreach (var column in tableDefinition.Columns())
+            {
+                if (column.DotNetType == typeof(Guid?) || column.DotNetType == typeof(Guid))
+                {
+                    if (!pd.ExtensionExists("uuid-ossp"))
+                        pd.ExtensionCreate("uuid-ossp", false);
+                }
+
+
+                if (column.DotNetType == typeof(PgSqlLTree))
+                {
+                    if (!pd.ExtensionExists("ltree"))
+                        pd.ExtensionCreate("ltree", false);
+                }
+
+            }
+
+
+            try
+            {
+                var tablebuilder = tableDefinition.GetSqlDefinition(GetConnectionString().TableName, GetConnectionString().SchemaName, throwIfAlreadyExists);
+                return Execute().ExecuteScalar(tablebuilder);
+            }
+            catch (PostgresException ex) when (ex.SqlState == "42P07")
+            {
+                throw new TableAlreadyExistsException(GetConnectionString().TableName);
+            }
+
+        }
+
 
         #region Query
 
-        protected JObject[] Query(Select select)
+        protected IEnumerable<JObject> _Query(params ISelectMember[] clauses)
         {
+            var selectStatement = new Select().AddColumnsFromTableDefinition(PostgresTableDefinition);
+            if (clauses != null)
+                selectStatement.AddClause(clauses);
 
-            if (select._from == null)
-            {
-                select.From(From.TableOrView(GetTableName()));
-            }
+            selectStatement.From(From.TableOrView(GetTableName()));
 
-            try
-            {
-                return Execute().ExecuteReader(select.GetSqlCommand(TableDefinition)).ToArray();
+            try {
+                return Execute().ExecuteReader(selectStatement.GetSqlCommand(PostgresTableDefinition));
             }
-            catch (Exception e)
-            {
-                Logger.Error(e, $"Query: {select.GetSqlCommand(TableDefinition).CommandAsPlainText()}");
+            catch (Exception e) {
+                Logger.Error(e, $"Query: {selectStatement.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText()}");
                 throw;
             }
-
         }
 
-        protected JObject[] Query(string sqlQuery)
+        protected JObject _QueryByPrimaryKey(object value)
         {
-            try
-            {
-                return Execute().ExecuteReader(sqlQuery).ToArray();
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, $"Query(Raw): {sqlQuery}");
-                throw;
-            }
-
-        }
-
-        protected JObject QueryByPrimaryKey(object value)
-        {
-            var prNames = TableDefinition.PrimaryKeys();
+            var prNames = PostgresTableDefinition.PrimaryKeys();
             Dictionary<string, object> dict = new Dictionary<string, object>();
             if (value.IsDictionaryType() || value.CanConvertToDictionary())
             {
-                dict = value.ToDotNetDictionary();
+                dict = value.ToColumsDictionary();
             }
             else
             {
                 if (prNames.Length > 1)
                     throw new Exception("Table has more than one PrimaryKey, please provide a Dictionary with Key/Value");
 
-                var pKeyName = prNames.FirstOrDefault()?.DbName;
+                var pKeyName = prNames.First().DbName;
                 dict.Add(pKeyName, value);
             }
 
-
-            var from = From.TableOrView(GetTableName());
-
             var where = new List<IWhere>();
-
             foreach (var kv in dict)
             {
                 where.Add(Where.Create().Eq(kv.Key, kv.Value));
             }
 
-            //var where = Where.Create().Eq(prName.Name, value);
-            var selectStatement = new Select().AddColumnsFromTableDefinition(TableDefinition)
-                .From(from)
-                .Where(Where.MergeQueriesAND(where));
-
-            return Query(selectStatement).FirstOrDefault();
+            return _Query(Where.MergeQueriesAND(where), Limit.WithNumber(1)).FirstOrDefault();
         }
 
+        protected Task<IEnumerable<JObject>> _QueryAsync(params ISelectMember[] clauses)
+        {
+            var selectStatement = new Select().AddColumnsFromTableDefinition(PostgresTableDefinition);
+            if (clauses != null)
+                selectStatement.AddClause(clauses);
+
+            selectStatement.From(From.TableOrView(GetTableName()));
+
+            try
+            {
+                return Execute().ExecuteReaderAsync(selectStatement.GetSqlCommand(PostgresTableDefinition));
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, $"Query: {selectStatement.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText()}");
+                throw;
+            }
+        }
+
+        protected Task<JObject> _QueryByPrimaryKeyAsync(object value)
+        {
+            var prNames = PostgresTableDefinition.PrimaryKeys();
+            Dictionary<string, object> dict = new Dictionary<string, object>();
+            if (value.IsDictionaryType() || value.CanConvertToDictionary())
+            {
+                dict = value.ToColumsDictionary();
+            }
+            else
+            {
+                if (prNames.Length > 1)
+                    throw new Exception("Table has more than one PrimaryKey, please provide a Dictionary with Key/Value");
+
+                var pKeyName = prNames.First().DbName;
+                dict.Add(pKeyName, value);
+            }
+
+            var where = new List<IWhere>();
+            foreach (var kv in dict)
+            {
+                where.Add(Where.Create().Eq(kv.Key, kv.Value));
+            }
+
+            return _QueryAsync(Where.MergeQueriesAND(where), Limit.WithNumber(1)).FirstOrDefaultAsync();
+        }
 
         #endregion
 
         #region Insert
 
-        protected Dictionary<string, object> Insert(object document)
-        {
-            return Insert(document, null);
+        protected JObject Insert<TAny>(TAny document, List<string> returnValues = null) {
+            return Insert<TAny>(new[] {document}, returnValues).FirstOrDefault();
         }
-
-        private Dictionary<string, object> BuildInsertData(object document)
-        {
-            if (document == null)
-                return null;
-
-            var jo = JObject.FromObject(document);
-            var dict = new Dictionary<string, object>();
-            foreach (var col in TableDefinition.Columns())
-            {
-                var colName = col.GetNameForDb();
-                if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
-                {
-                    if (jo.ContainsKey(colName))
-                    {
-                        var val = jo[colName];
-
-                        if (val.Type == JTokenType.Null)
-                            continue;
-
-                        if ((val.Type == JTokenType.Integer || val.Type == JTokenType.Float) && Math.Abs(val.ToObject<float>() - 0) < 0)
-                            continue;
-
-                        dict.Add(colName, val.ToObject(col.DotNetType));
-                    }
-                }
-
-            }
-
-            return dict;
-        }
-
-
-        protected Dictionary<string, object> Insert(object document, List<string> returnValues)
-        {
-            var dict = document.ToDotNetDictionary();
-            foreach (var col in TableDefinition.Columns())
-            {
-
-                if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
-                {
-                    if (dict.ContainsKey(col.GetNameForDb()))
-                    {
-                        if (dict[col.GetNameForDb()] == null)
-                        {
-                            dict.Remove(col.GetNameForDb());
-                            continue;
-                        }
-
-                        if (dict[col.GetNameForDb()] is long l)
-                        {
-                            if (l == 0)
-                            {
-                                dict.Remove(col.GetNameForDb());
-                                continue;
-                            }
-
-                        }
-                    }
-                }
-
-
-
-            }
-
+        protected IEnumerable<JObject> Insert<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null) {
             var insert = Statements.Insert.Into(GetTableName())
-                .AddColumnsFromTableDefinition(TableDefinition)
-                .AddValuesFromObject(dict);
+                .AddColumnsFromTableDefinition(PostgresTableDefinition);
 
+            foreach (var document in documents)
+            {
+                var dict = document.ToColumsDictionary();
+                foreach (var col in PostgresTableDefinition.Columns())
+                {
+                    if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
+                    {
+                        var colName = col.ClrName.ToNull() ?? col.DbName.ToNull();
+
+                        if (dict.ContainsKey(colName))
+                        {
+                            if (dict[colName] == null)
+                            {
+                                dict.Remove(colName);
+                            }
+                        }
+                    }
+
+                }
+                insert.AddValuesFromObject(dict);
+            }
 
             if (returnValues == null || !returnValues.Any())
             {
-                returnValues = TableDefinition.PrimaryKeys().Select(p => p.DbName).ToList();
+                returnValues = PostgresTableDefinition.PrimaryKeys().Select(p => p.DbName).ToList();
             }
 
             if (returnValues.Any())
                 insert.AddClause(Returning.Columns(returnValues.ToArray()));
 
-            return Execute().ExecuteReader<Dictionary<string, object>>(insert.GetSqlCommand(TableDefinition)).FirstOrDefault();
+            return Execute().ExecuteReader(insert.GetSqlCommand(PostgresTableDefinition));
         }
 
-        protected List<Dictionary<string, object>> Insert<TAny>(IEnumerable<TAny> documents)
+        protected Task<JObject> InsertAsync<TAny>(TAny document, List<string> returnValues = null)
         {
-            return Insert<TAny>(documents, null);
+            return InsertAsync<TAny>(new[] { document }, returnValues).FirstOrDefaultAsync();
         }
-        protected List<Dictionary<string, object>> Insert<TAny>(IEnumerable<TAny> documents, List<string> returnValues)
+        protected Task<IEnumerable<JObject>> InsertAsync<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null)
         {
             var insert = Statements.Insert.Into(GetTableName())
-                .AddColumnsFromTableDefinition(TableDefinition);
+                .AddColumnsFromTableDefinition(PostgresTableDefinition);
             foreach (var document in documents)
             {
-                var dict = document.ToDotNetDictionary();
-                foreach (var col in TableDefinition.Columns())
+                var dict = document.ToColumsDictionary();
+                foreach (var col in PostgresTableDefinition.Columns())
                 {
                     if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
                     {
@@ -400,61 +425,93 @@ namespace doob.PgSql.Tables
 
             if (returnValues == null || !returnValues.Any())
             {
-                returnValues = TableDefinition.PrimaryKeys().Select(p => p.DbName).ToList();
+                returnValues = PostgresTableDefinition.PrimaryKeys().Select(p => p.DbName).ToList();
             }
 
             if (returnValues.Any())
                 insert.AddClause(Returning.Columns(returnValues.ToArray()));
 
-            return Execute().ExecuteReader<Dictionary<string, object>>(insert.GetSqlCommand(TableDefinition)).ToList();
+            return Execute().ExecuteReaderAsync(insert.GetSqlCommand(PostgresTableDefinition));
         }
+
 
         #endregion
 
         #region Update
-        protected object Update(IWhere query, object document)
+
+        public int Update(IWhere query, object document)
         {
             var update = Statements.Update.Table(GetTableName()).SetValueFromObject(document).Where(query);
 
-            Logger.Debug(update.GetSqlCommand(TableDefinition).CommandAsPlainText);
+            Logger.Debug(() => update.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
 
-            try
-            {
-                return Execute().ExecuteScalar(update.GetSqlCommand(TableDefinition));
+            try {
+                return Execute().ExecuteNonQuery(update.GetSqlCommand(PostgresTableDefinition));
             }
-            catch (Exception e)
-            {
-                Logger.Error(e, "Update", update.GetSqlCommand(TableDefinition).CommandAsPlainText());
+            catch (Exception e) {
+                Logger.Error(e, "Update", update.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
                 throw;
             }
 
         }
+
+        public Task<int> UpdateAsync(IWhere query, object document)
+        {
+            var update = Statements.Update.Table(GetTableName()).SetValueFromObject(document).Where(query);
+
+            Logger.Debug(() => update.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
+
+            try
+            {
+                return Execute().ExecuteNonQueryAsync(update.GetSqlCommand(PostgresTableDefinition));
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, "Update", update.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
+                throw;
+            }
+
+        }
+
         #endregion
 
         #region Delete
-
-        protected int Delete(IWhere query)
+        public int Delete(IWhere query)
         {
-            var from = From.TableOrView(GetTableName());
-            var delStatement = Statements.Delete.From(from).Where(query);
-            try
-            {
-                return Execute().ExecuteNonQuery(delStatement.GetSqlCommand(TableDefinition));
+
+            var delStatement = Statements.Delete.From(From.TableOrView(GetTableName())).Where(query);
+            Logger.Debug(() => delStatement.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
+
+            try {
+                return Execute().ExecuteNonQuery(delStatement.GetSqlCommand(PostgresTableDefinition));
             }
-            catch (Exception e)
-            {
-                Logger.Error(e, "Delete", delStatement.GetSqlCommand(TableDefinition).CommandAsPlainText());
+            catch (Exception e) {
+                Logger.Error(e, "Delete", delStatement.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
                 throw;
             }
 
         }
+        public Task<int> DeleteAsync(IWhere query)
+        {
 
+            var delStatement = Statements.Delete.From(From.TableOrView(GetTableName())).Where(query);
+            Logger.Debug(() => delStatement.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
 
+            try
+            {
+                return Execute().ExecuteNonQueryAsync(delStatement.GetSqlCommand(PostgresTableDefinition));
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, "Delete", delStatement.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
+                throw;
+            }
+
+        }
         #endregion
 
         #region Exists
-
-        protected bool Exists(IWhere where, NpgsqlConnection npgsqlConnection)
+        public bool Exists(IWhere where)
         {
             var from = From.TableOrView(GetTableName());
             var sel = new Select().From(from).Where(where);
@@ -464,22 +521,31 @@ namespace doob.PgSql.Tables
 
             try
             {
-                return Execute().ExecuteScalar<bool>(exists.GetSqlCommand(TableDefinition));
+                return Execute().ExecuteScalar<bool>(exists.GetSqlCommand(PostgresTableDefinition));
             }
             catch (Exception e)
             {
-                Logger.Error(e, "Exists", exists.GetSqlCommand(TableDefinition).CommandAsPlainText());
+                Logger.Error(e, "Exists", exists.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
                 throw;
             }
 
         }
-
-        protected bool Exists(string field, object value, NpgsqlConnection npgsqlConnection)
+        public Task<bool> ExistsAsync(IWhere where)
         {
-            var q = Where.Create().Eq(field, value);
-            return Exists(q, npgsqlConnection);
-        }
 
+            var sel = new Select().From(From.TableOrView(GetTableName())).Where(where);
+
+            var exists = Select.Exists(new Exists(sel));
+
+            try {
+                return Execute().ExecuteScalarAsync<bool>(exists.GetSqlCommand(PostgresTableDefinition));
+            }
+            catch (Exception e) {
+                Logger.Error(e, "Exists", exists.GetSqlCommand(PostgresTableDefinition).CommandAsPlainText());
+                throw;
+            }
+
+        }
         #endregion
 
 

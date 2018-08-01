@@ -11,7 +11,7 @@
         Schema GetSchema();
         ConnectionString GetConnectionString();
 
-        TableDefinition TableDefinition { get; }
+        TableDefinition PostgresTableDefinition { get; }
 
         bool TriggerExists(string triggerName);
         void TriggerCreate(string triggerName, string triggerFunctionName, bool overwriteIfExists = false);

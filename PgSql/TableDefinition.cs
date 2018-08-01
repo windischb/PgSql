@@ -13,6 +13,9 @@ using doob.PgSql.TypeMapping;
 namespace doob.PgSql
 {
 
+
+
+
     public class TableDefinition
     {
 
@@ -20,7 +23,7 @@ namespace doob.PgSql
         private OrderedColumnsList OrderedColumns { get; } = new OrderedColumnsList();
 
         public TableDefinition() { }
-        private TableDefinition(OrderedColumnsList orderedColumnsList)
+        protected TableDefinition(OrderedColumnsList orderedColumnsList)
         {
             OrderedColumns = orderedColumnsList.Clone();
         }
@@ -148,17 +151,7 @@ namespace doob.PgSql
         }
 
 
-        public static TableDefinition FromType(Type type)
-        {
-            return FromType<object>(type);
-        }
-
-        public static TableDefinition<T> FromType<T>()
-        {
-            return FromType<T>(null);
-        }
-
-        private static TableDefinition<T> FromType<T>(Type type)
+        internal static TableDefinition<T> FromType<T>(Type type)
         {
             if (type == null)
                 type = typeof(T);
@@ -211,23 +204,12 @@ namespace doob.PgSql
 
             return def;
         }
-
-        public static TableDefinition FromTable(ITable table)
-        {
-            return FromTable<object>(table);
-        }
-
-        public static TableDefinition<T> FromTable<T>(TypedTable<T> table)
-        {
-            return FromTable<T>((ITable)table);
-        }
-
         internal static TableDefinition<T> FromTable<T>(ITable table)
         {
-            var td = TableDefinition.FromType<T>();
+            var td = TableDefinition.FromType<T>(null);
             try
             {
-                var columns = new DbExecuter(table.GetConnectionString()).ExecuteReader(SQLStatements.GetColumns(table.GetConnectionString().TableName, table.GetConnectionString().SchemaName)).ToArray();
+                var columns = new PgSqlExecuter(table.GetConnectionString()).ExecuteReader(SQLStatements.GetColumns(table.GetConnectionString().TableName, table.GetConnectionString().SchemaName)).ToArray();
                 foreach (var column in columns)
                 {
 
@@ -237,7 +219,7 @@ namespace doob.PgSql
 
                     if (col == null)
                     {
-                        dbCol.DotNetType = PgSqlTypeManager.GetDotNetType(dbCol.PgType);
+                        dbCol.DotNetType = PgSqlTypeManager.Global.GetDotNetType(dbCol.PgType);
                         td.AddColumn(dbCol);
 
                     }
@@ -262,7 +244,6 @@ namespace doob.PgSql
             return td;
         }
 
-
     }
 
     public class TableDefinition<T> : TableDefinition
@@ -273,6 +254,9 @@ namespace doob.PgSql
             var name = field.GetPropertyName();
             return base.GetColumnBuilderByClrName(name);
         }
+
+       
+
 
     }
 

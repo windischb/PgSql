@@ -72,7 +72,7 @@ $$ LANGUAGE plpgsql;
 
 
             return $@"
-CREATE OR REPLACE FUNCTION ""{schema.ConnectionString.SchemaName}"".""WriteHistory""() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION ""{schema.GetConnectionString().SchemaName}"".""WriteHistory""() RETURNS TRIGGER AS $$
 
     DECLARE
 

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
 using System.Reflection;
 using doob.PgSql.CustomTypes;
 using Newtonsoft.Json;
@@ -103,108 +104,141 @@ namespace doob.PgSql.ExtensionMethods
             return true;
         }
 
-        public static Dictionary<string, object> ToDotNetDictionary(this object @object, bool ignoreCase = false)
+        //public static Dictionary<string, object> ToDotNetDictionary(this object @object, bool ignoreCase = false)
+        //{
+
+        //    StringComparer comp = StringComparer.CurrentCulture;
+        //    if (ignoreCase)
+        //        comp = StringComparer.CurrentCultureIgnoreCase;
+
+        //    Dictionary<string, object> tempDict = null;
+
+        //    if (@object is ExpandoObject)
+        //    {
+        //        tempDict = new Dictionary<string, object>(@object as IDictionary<string, object>, comp);
+        //    }
+
+
+        //    if (tempDict == null && @object is JObject)
+        //    {
+        //        tempDict = new Dictionary<string, object>(((JObject)@object).ToObject<Dictionary<string, object>>(), comp);
+        //    }
+
+
+        //    if (tempDict == null)
+        //    {
+        //        var dict = @object as IDictionary;
+        //        if (dict != null)
+        //        {
+        //            tempDict = new Dictionary<string, object>(comp);
+        //            foreach (string o in dict.Keys)
+        //            {
+        //                tempDict.Add(o, dict[o]);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            tempDict = new Dictionary<string, object>(comp);
+
+        //            foreach (var propertyInfo in @object.GetType().GetProperties())
+        //            {
+        //                if (tempDict.ContainsKey(propertyInfo.Name))
+        //                    continue;
+
+
+        //                var val = propertyInfo.GetValue(@object);
+
+        //                if (val == null)
+        //                {
+        //                    tempDict.Add(propertyInfo.Name, null);
+        //                    continue;
+        //                }
+
+        //                var type = val.GetType();
+
+        //                if (type == typeof(ExpandoObject))
+        //                {
+        //                    tempDict.Add(propertyInfo.Name, val.ToDotNetDictionary(ignoreCase));
+        //                    continue;
+        //                }
+
+        //                if (type == typeof(PgSqlLTree))
+        //                {
+        //                    tempDict.Add(propertyInfo.Name, val);
+        //                    continue;
+        //                }
+
+        //                var isJType = val is JToken;
+        //                if (isJType)
+        //                {
+        //                    val = ((JToken)val).ToBasicDotNetObject();
+        //                    type = val.GetType();
+        //                }
+
+
+
+        //                if (type == typeof(String))
+        //                {
+        //                    tempDict.Add(propertyInfo.Name, val.ToString());
+        //                    continue;
+        //                }
+
+        //                if (type.IsListType())
+        //                {
+        //                    tempDict.Add(propertyInfo.Name, JArray.FromObject(val, JsonSerializer.Create(JSON.JsonSerializerSettings)).ToBasicDotNetObject());
+        //                    continue;
+        //                }
+
+        //                if (val.GetType().GetTypeInfo().BaseType == typeof(object))
+        //                {
+        //                    tempDict.Add(propertyInfo.Name, val.ToDotNetDictionary(ignoreCase));
+        //                    continue;
+        //                }
+
+        //                tempDict.Add(propertyInfo.Name, val);
+        //            }
+
+        //        }
+        //    }
+
+
+
+        //    return tempDict;
+        //}
+
+
+        public static Dictionary<string, object> ToColumsDictionary(this object @object)
         {
 
-            StringComparer comp = StringComparer.CurrentCulture;
-            if (ignoreCase)
-                comp = StringComparer.CurrentCultureIgnoreCase;
-
-            Dictionary<string, object> tempDict = null;
-
-            if (@object is ExpandoObject)
+            switch (@object)
             {
-                tempDict = new Dictionary<string, object>(@object as IDictionary<string, object>, comp);
-            }
-
-
-            if (tempDict == null && @object is JObject)
-            {
-                tempDict = new Dictionary<string, object>(((JObject)@object).ToObject<Dictionary<string, object>>(), comp);
-            }
-
-
-            if (tempDict == null)
-            {
-                var dict = @object as IDictionary;
-                if (dict != null)
+                case ExpandoObject exp:
                 {
-                    tempDict = new Dictionary<string, object>(comp);
-                    foreach (string o in dict.Keys)
-                    {
-                        tempDict.Add(o, dict[o]);
-                    }
+                    return new Dictionary<string, object>(exp);
                 }
-                else
+                case JObject jObject:
                 {
-                    tempDict = new Dictionary<string, object>(comp);
-
-                    foreach (var propertyInfo in @object.GetType().GetProperties())
+                    return jObject.Properties().ToDictionary(jp => jp.Name, jp => (object)jp.Value);
+                }
+                case IDictionary idict:
+                {
+                    var tempDict = new Dictionary<string, object>();
+                    foreach (var idictKey in idict.Keys)
                     {
-                        if (tempDict.ContainsKey(propertyInfo.Name))
-                            continue;
-
-
-                        var val = propertyInfo.GetValue(@object);
-
-                        if (val == null)
-                        {
-                            tempDict.Add(propertyInfo.Name, null);
-                            continue;
-                        }
-
-                        var type = val.GetType();
-
-                        if (type == typeof(ExpandoObject))
-                        {
-                            tempDict.Add(propertyInfo.Name, val.ToDotNetDictionary(ignoreCase));
-                            continue;
-                        }
-
-                        if (type == typeof(PgSqlLTree))
-                        {
-                            tempDict.Add(propertyInfo.Name, val);
-                            continue;
-                        }
-
-                        var isJType = val is JToken;
-                        if (isJType)
-                        {
-                            val = ((JToken)val).ToBasicDotNetObject();
-                            type = val.GetType();
-                        }
-
-
-
-                        if (type == typeof(String))
-                        {
-                            tempDict.Add(propertyInfo.Name, val.ToString());
-                            continue;
-                        }
-
-                        if (type.IsListType())
-                        {
-                            tempDict.Add(propertyInfo.Name, JArray.FromObject(val, JsonSerializer.Create(JSON.JsonSerializerSettings)).ToBasicDotNetObject());
-                            continue;
-                        }
-
-                        if (val.GetType().GetTypeInfo().BaseType == typeof(object))
-                        {
-                            tempDict.Add(propertyInfo.Name, val.ToDotNetDictionary(ignoreCase));
-                            continue;
-                        }
-
-                        tempDict.Add(propertyInfo.Name, val);
+                        tempDict.Add(idictKey.ToString(), idict[idictKey]);
                     }
 
+                    return tempDict;
                 }
             }
 
 
+            return @object.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .ToDictionary(pInfo => pInfo.Name, pInfo => pInfo.GetValue(@object));
 
-            return tempDict;
         }
 
+       
     }
 
 }

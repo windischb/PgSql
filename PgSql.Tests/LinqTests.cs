@@ -46,7 +46,7 @@ namespace PgSql.Tests
 
             //var q = (IQueryable<TypeTestModel>)PgSqlQueryFactory.Queryable<TypeTestModel>(tbl);
 
-            var lq = tbl.Queryable().Where(t => t.Address == address).ToList();
+            //var lq = tbl.Queryable().Where(t => t.Address == address).ToList();
 
             //var lq1 = tbl.Queryable().Where(t => t.Address.Zip == "123" && t.String == "TestString").Where(t2 => t2.Address.Position == 99).ToList();
 
