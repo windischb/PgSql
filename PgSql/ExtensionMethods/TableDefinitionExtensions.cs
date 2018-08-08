@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using doob.PgSql.TypeMapping;
@@ -28,6 +29,8 @@ namespace doob.PgSql.ExtensionMethods
         public static string GetInnerSqlDefinition(this TableDefinition tblDefinition)
         {
 
+            var uniqueGroups = new Dictionary<string, List<string>>();
+
             var strBuilder = new StringBuilder();
             tblDefinition.Columns().ToList().ForEach(c =>
             {
@@ -53,7 +56,24 @@ namespace doob.PgSql.ExtensionMethods
 
 
                 if (c.MustBeUnique)
-                    str = $"{str} UNIQUE".Trim();
+                {
+                    if(!String.IsNullOrWhiteSpace(c.UniqueGroup))
+                    {
+                        if(uniqueGroups.ContainsKey(c.UniqueGroup))
+                        {
+                            uniqueGroups[c.UniqueGroup].Add($"\"{c.GetNameForDb()}\"");
+                        }
+                        else
+                        {
+                            uniqueGroups.Add(c.UniqueGroup, new List<string> { $"\"{c.GetNameForDb()}\"" });
+                        }
+                    } else
+                    {
+                        str = $"{str} UNIQUE".Trim();
+                    }
+                    
+                }
+                    
 
                 if (!c.CanBeNull || c.IsPrimaryKey)
                     str = $"{str} NOT NULL".Trim();
@@ -64,8 +84,15 @@ namespace doob.PgSql.ExtensionMethods
             if (tblDefinition.PrimaryKeys() != null)
             {
                 var keys = String.Join(", ", tblDefinition.PrimaryKeys().Select(p => $"\"{p.GetNameForDb()}\""));
-                strBuilder.AppendLine($"    PRIMARY KEY ({keys})");
+                strBuilder.Append($"    PRIMARY KEY ({keys})");
             }
+
+            uniqueGroups.Keys.ToList().ForEach(k =>
+            {
+                strBuilder.AppendLine(",");
+                strBuilder.AppendLine($"    UNIQUE ({String.Join(", ", uniqueGroups[k])})");
+
+            });
 
             return strBuilder.ToString();
         }

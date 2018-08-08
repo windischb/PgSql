@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using doob.PgSql.Attributes;
+using doob.PgSql.CustomTypes;
 using doob.PgSql.Exceptions;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Logging;
@@ -174,7 +175,23 @@ namespace doob.PgSql
                 ColumnBuilder col = ColumnBuilder.Build(propertyInfo.Name, propertyInfo.PropertyType);
 
 
+                if (propertyInfo.PropertyType == typeof(Guid?) || propertyInfo.PropertyType == typeof(Guid))
+                {
+                    col.UseExtension("uuid-ossp");
+                }
+
+
+                if (propertyInfo.PropertyType == typeof(PgSqlLTree))
+                {
+                    col.UseExtension("ltree");
+                }
+
+
+
                 var attributes = propertyInfo.GetCustomAttributes<PgSqlAttribute>(true);
+
+
+
                 foreach (var attr in attributes) {
 
                     if (attr is PgSqlPrimaryKeyAttribute primaryKeyAttribute) {
@@ -185,13 +202,23 @@ namespace doob.PgSql
                     }
 
                     if (attr is PgSqlColumnAttribute colAttr)
-                        col.SetDbName(colAttr.Name);
+                    {
+                        if(!String.IsNullOrWhiteSpace(colAttr.Name))
+                            col.SetDbName(colAttr.Name);
+
+                        col.UseExtension(colAttr.UseExtension);
+
+                    }
+                        
                     
                     if (attr is PgSqlDefaultValueAttribute defaultvalue)
                         col.DefaultValue(defaultvalue.Value?.ToString());
 
                     if (attr is PgSqlUniqueAttribute unique)
-                        col.MustBeUnique((bool)unique.Value);
+                    {
+                        col.MustBeUnique(unique.Group);
+                    }
+                        
 
                     if (attr is PgSqlCustomTypeAttribute custom)
                         col.SetCustomDbType((string)custom.Value);

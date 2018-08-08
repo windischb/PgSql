@@ -28,7 +28,24 @@ namespace PgSql.Tests
             var tbd = Build.TableDefinition<ConfigurationItem>();
 
             var table = GetSchema().CreateTable("Test1", tbd);
-          
+
+            var cfgi = new ConfigurationItem();
+            cfgi.ParentFolder = "";
+            cfgi.Name = "test";
+
+            table.Insert(cfgi);
+
+            var cfgi2 = new ConfigurationItem();
+            cfgi2.ParentFolder = "";
+            cfgi2.Name = "test1";
+
+            table.Insert(cfgi2);
+
+            var cfgi3 = new ConfigurationItem();
+            cfgi3.ParentFolder = "";
+            cfgi3.Name = "test";
+
+            table.Insert(cfgi3);
         }
     }
 
@@ -37,9 +54,10 @@ namespace PgSql.Tests
         [PgSqlPrimaryKey(DefaultValues.Guid.New)]
         public Guid Id { get; set; }
 
-        [PgSqlUnique]
+        [PgSqlUnique("FullPath")]
         public PgSqlLTree ParentFolder { get; set; }
 
+        [PgSqlUnique("FullPath")]
         public string Name { get; set; }
         public JToken Value { get; set; }
 

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
+using doob.PgSql.CustomTypes;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Logging;
 using doob.PgSql.TypeMapping;
@@ -47,7 +48,9 @@ namespace doob.PgSql
 
         public PgSqlExecuter EndTransaction()
         {
+            _transaction?.Connection?.CloseConnection();
             _transaction = null;
+            _connection?.CloseConnection();
             return this;
         }
 
@@ -143,16 +146,16 @@ namespace doob.PgSql
             var command = await PrepareCommandAsync(sqlCommand);
             return await ExecuteNonQueryAsync(command);
         }
-        public Task<int> ExecuteNonQueryAsync(NpgsqlCommand sqlCommand)
+        public async Task<int> ExecuteNonQueryAsync(NpgsqlCommand sqlCommand)
         {
 
             _logger.Debug(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
 
-            Task<int> result;
+            int result;
 
             try
             {
-                result = sqlCommand.ExecuteNonQueryAsync();
+                result = await sqlCommand.ExecuteNonQueryAsync();
             }
             catch (Exception e)
             {
@@ -248,7 +251,6 @@ namespace doob.PgSql
                         var jo = new JObject();
                         for (int i = 0; i < reader.FieldCount; i++)
                         {
-                            System.Data.Common.DbColumn col = columns[i];
                             jo.Add(columns[i].ColumnName, ConvertFromDb(reader[i], columns[i].DataTypeName));
                         }
                         items.Add(jo);
@@ -350,16 +352,16 @@ namespace doob.PgSql
             var command = await PrepareCommandAsync(sqlCommand);
             return await ExecuteScalarAsync<TOut>(command);
         }
-        public Task<TOut> ExecuteScalarAsync<TOut>(NpgsqlCommand sqlCommand)
+        public async Task<TOut> ExecuteScalarAsync<TOut>(NpgsqlCommand sqlCommand)
         {
 
             _logger.Debug(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
 
-            Task<TOut> result;
+            TOut result;
 
             try
             {
-                result = sqlCommand.ExecuteScalarAsync().CastToTaskOf<TOut>();
+                result = await sqlCommand.ExecuteScalarAsync().CastToTaskOf<TOut>();
             }
             catch (Exception e)
             {
@@ -487,6 +489,11 @@ namespace doob.PgSql
                         type = NpgsqlDbType.Text;
                 }
 
+                if(param.Value is PgSqlLTree ltree)
+                {
+                    return new NpgsqlParameter(param.UniqueId, NpgsqlDbType.Unknown) { Value = ltree.ToString() };
+                }
+
 
                 object value = null;
                 switch (type)
@@ -527,6 +534,7 @@ namespace doob.PgSql
                         break;
                     }
                     default: {
+                        
                         value = param.Value;
                         break;
                     }

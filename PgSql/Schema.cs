@@ -263,19 +263,24 @@ namespace doob.PgSql
 
             foreach (var column in definition.Columns())
             {
-                if (column.DotNetType == typeof(Guid?) || column.DotNetType == typeof(Guid))
+                //if (column.DotNetType == typeof(Guid?) || column.DotNetType == typeof(Guid))
+                //{
+                //    if (!pd.ExtensionExists("uuid-ossp"))
+                //        pd.ExtensionCreate("uuid-ossp", false);
+                //}
+
+
+                //if (column.DotNetType == typeof(PgSqlLTree))
+                //{
+                //    if (!pd.ExtensionExists("ltree"))
+                //        pd.ExtensionCreate("ltree", false);
+                //}
+
+                if (!String.IsNullOrWhiteSpace(column.NeedsExtension))
                 {
-                    if (!pd.ExtensionExists("uuid-ossp"))
-                        pd.ExtensionCreate("uuid-ossp", false);
+                    if (!pd.ExtensionExists(column.NeedsExtension))
+                        pd.ExtensionCreate(column.NeedsExtension, false);
                 }
-
-
-                if (column.DotNetType == typeof(PgSqlLTree))
-                {
-                    if (!pd.ExtensionExists("ltree"))
-                        pd.ExtensionCreate("ltree", false);
-                }
-
 
             }
 

@@ -26,6 +26,8 @@ namespace doob.PgSql
         [JsonProperty("is_unique")]
         public bool MustBeUnique { get; internal set; }
 
+        public string UniqueGroup { get; internal set; }
+
         [JsonProperty("is_primarykey")]
         public bool IsPrimaryKey { get; internal set; }
 
@@ -38,6 +40,9 @@ namespace doob.PgSql
 
         [JsonProperty("pg_type")]
         public string PgType { get; set; }
+
+        [JsonProperty]
+        public string NeedsExtension { get; set; }
 
         [JsonIgnore]
         private NpgsqlDbType? _npgsqlDbType;

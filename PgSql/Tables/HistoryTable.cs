@@ -83,6 +83,11 @@ namespace doob.PgSql.Tables
 
         public T New { get; set; }
 
+        public Dictionary<string, object> ChangesOld { get; set; }
+        public Dictionary<string, object> ChangesNew { get; set; }
+
+        public List<string> ChangedKeys { get; set; }
+
         [PgSqlDefaultValue(DefaultValues.DateTime.Now)]
         public DateTime Timestamp { get; set; }
 

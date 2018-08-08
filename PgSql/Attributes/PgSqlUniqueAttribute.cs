@@ -2,13 +2,17 @@
 {
     public class PgSqlUniqueAttribute : PgSqlValueAttribute
     {
+        public string Group { get; set; }
+
         public PgSqlUniqueAttribute()
         {
-            Value = true;
+            
         }
 
-        public PgSqlUniqueAttribute(bool unique) {
-            Value = unique;
+        public PgSqlUniqueAttribute(string group)
+        {
+            Group = group;
         }
+
     }
 }

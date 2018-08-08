@@ -77,6 +77,9 @@ namespace doob.PgSql.ExtensionMethods
             if (connection == null)
                 throw new ArgumentNullException(nameof(connection));
 
+
+            
+
             switch (connection.FullState)
             {
                 case ConnectionState.Open:
@@ -104,7 +107,7 @@ namespace doob.PgSql.ExtensionMethods
                     connection.Close();
                     break;
                 }
-
+                
             }
             return connection;
         }

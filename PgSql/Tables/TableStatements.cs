@@ -79,27 +79,34 @@ CREATE OR REPLACE FUNCTION ""{schema.GetConnectionString().SchemaName}"".""Write
         history_schema_name text;
         history_schema_table_name text;
         insert_query text;
-
+        changesOld hstore;
+        changesNew hstore;
+        changedKeys text[] := '{{}}';
     BEGIN
 
         history_schema_name:= '""' || TG_TABLE_SCHEMA || '#history""';
         history_schema_table_name:= history_schema_name || '.""' ||  TG_TABLE_NAME || '""';
 
-        insert_query := 'INSERT INTO ' || history_schema_table_name || ' (""Id"",""Action"",""Old"",""New"",""Timestamp"") VALUES (DEFAULT,''' || TG_OP || ''',to_jsonb($1),to_jsonb($2),DEFAULT)';
+        
+        insert_query := 'INSERT INTO ' || history_schema_table_name || ' (""Id"",""Action"",""Old"",""New"",""ChangesOld"",""ChangesNew"",""ChangedKeys"",""Timestamp"") VALUES (DEFAULT,''' || TG_OP || ''',to_jsonb($1),to_jsonb($2),to_jsonb($3),to_jsonb($4),$5,DEFAULT)';
 
         IF(TG_OP = 'INSERT') THEN
-            EXECUTE insert_query USING NULL,NEW;
+            EXECUTE insert_query USING NULL,NEW,NULL,NULL,changedKeys;
         END IF;
 
         IF(TG_OP = 'DELETE') THEN
-            EXECUTE insert_query USING OLD,NULL;
+            EXECUTE insert_query USING OLD,NULL,NULL,NULL,changedKeys;
         END IF;
 
         IF(TG_OP = 'UPDATE') THEN
-            EXECUTE insert_query USING OLD,NEW;
             IF(OLD = NEW) THEN
                 RETURN NULL;
             END IF;
+            changesOld := hstore(OLD) - hstore(NEW);
+            changesNew := hstore(NEW) - hstore(OLD);
+            changedKeys := akeys(changesNew);
+            EXECUTE insert_query USING OLD,NEW,changesOld,changesNew,changedKeys;
+            
         END IF;
 
         RETURN NEW;

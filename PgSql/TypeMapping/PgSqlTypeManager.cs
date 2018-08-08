@@ -25,6 +25,15 @@ namespace doob.PgSql.TypeMapping
         public PgSqlTypeManager(INpgsqlTypeMapper npgsqlTypeMapper)
         {
             _npgsqlTypeMapper = npgsqlTypeMapper;
+
+            var tm = new NpgsqlTypeMappingBuilder();
+            tm.ClrTypes = new[] { typeof(PgSqlLTree) };
+            tm.InferredDbType = System.Data.DbType.String;
+            tm.NpgsqlDbType = NpgsqlDbType.Text;
+            tm.PgTypeName = "ltree";
+            tm.TypeHandlerFactory = new PgSqlTreeHandlerFactory();
+
+            _npgsqlTypeMapper.AddMapping(tm.Build());
         }
 
 

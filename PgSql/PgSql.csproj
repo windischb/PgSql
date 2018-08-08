@@ -12,12 +12,12 @@
     <Company>-</Company>
     <RepositoryUrl>https://github.com/windischb/PgSql</RepositoryUrl>
     <PackageProjectUrl>https://github.com/windischb/PgSql</PackageProjectUrl>
-    <Version>3.0.0-alpha009</Version>
+    <Version>3.0.0-alpha021</Version>
   </PropertyGroup>
 
 
   <ItemGroup>
-    <PackageReference Include="doob.Reflectensions" Version="1.5.2" />
+    <PackageReference Include="doob.Reflectensions" Version="1.5.7" />
     <PackageReference Include="LibLog" Version="5.0.2" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2">
     </PackageReference>

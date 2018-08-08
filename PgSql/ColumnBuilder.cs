@@ -55,11 +55,13 @@ namespace doob.PgSql
 
         public ColumnBuilder MustBeUnique()
         {
-            return MustBeUnique(true);
+            Column.MustBeUnique = true;
+            return this;
         }
-        public ColumnBuilder MustBeUnique(bool value)
+        public ColumnBuilder MustBeUnique(string group)
         {
             Column.MustBeUnique = true;
+            Column.UniqueGroup = group?.Trim().ToLower();
             return this;
         }
 
@@ -96,6 +98,12 @@ namespace doob.PgSql
             return _currentTablePosition;
         }
 
+
+        public ColumnBuilder UseExtension(string value)
+        {
+            Column.NeedsExtension = value.TrimToNull();
+            return this;
+        }
 
         public static ColumnBuilder Build(string name, Type dotnetType)
         {
