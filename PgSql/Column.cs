@@ -1,6 +1,7 @@
 ﻿using System;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.TypeMapping;
+using Reflectensions.ExtensionMethods;
 using Newtonsoft.Json;
 using NpgsqlTypes;
 
@@ -45,7 +46,7 @@ namespace doob.PgSql
         public string NeedsExtension { get; set; }
 
         [JsonIgnore]
-        private NpgsqlDbType? _npgsqlDbType;
+        internal NpgsqlDbType? _npgsqlDbType;
 
         internal NpgsqlDbType? GetNpgSqlDbType() => _npgsqlDbType ?? (_npgsqlDbType = !String.IsNullOrWhiteSpace(PgType) ? PgSqlTypeManager.Global.GetNpgsqlDbType(PgType) : PgSqlTypeManager.Global.GetNpgsqlDbType(DotNetType));
 

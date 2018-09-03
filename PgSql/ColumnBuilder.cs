@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.TypeMapping;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql
 {
@@ -114,6 +115,7 @@ namespace doob.PgSql
             var col = new ColumnBuilder().SetClrName(name);
 
             col.Column.DotNetType = dotnetType ?? throw new ArgumentNullException(nameof(dotnetType));
+            col.Column._npgsqlDbType = PgSqlTypeManager.Global.GetNpgsqlDbType(dotnetType);
             return col;
         }
         public static ColumnBuilder Build(string name, string typeName)

@@ -99,7 +99,7 @@ namespace doob.PgSql.Listener
         protected override void _OnEvent(object sender, NpgsqlNotificationEventArgs npgsqlNotificationEventArgs)
         {
 
-            var notifyObject = JSON.ToObject<NotificationObject>(npgsqlNotificationEventArgs.AdditionalInformation);
+            var notifyObject = Converter.Json.ToObject<NotificationObject>(npgsqlNotificationEventArgs.AdditionalInformation);
 
             var fqdn = $"{notifyObject.Schema}.{notifyObject.Table}";
 

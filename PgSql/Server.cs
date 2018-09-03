@@ -29,7 +29,7 @@ namespace doob.PgSql
             var settings = new List<Dictionary<string, object>>();
             foreach (var expandableObject in new PgSqlExecuter(_configuration).ExecuteReader(SQLStatements.GetAllSettings()))
             {
-                settings.Add(JSON.ToObject<Dictionary<string, object>>(expandableObject));
+                settings.Add(Converter.Json.ToObject<Dictionary<string, object>>(expandableObject));
             }
             return settings;
         }
@@ -43,7 +43,7 @@ namespace doob.PgSql
         {
             foreach (var expandableObject in new PgSqlExecuter(_configuration).ExecuteReader(SQLStatements.DatabaseListAll()))
             {
-                var obj = JSON.ToObject<Dictionary<string, object>>(expandableObject);
+                var obj = Converter.Json.ToObject<Dictionary<string, object>>(expandableObject);
                 yield return obj["datname"].ToString();
             }
         }

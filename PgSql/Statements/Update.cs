@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using doob.PgSql.Clauses;
+using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Interfaces;
 using doob.PgSql.Interfaces.Where;
 
@@ -56,7 +57,8 @@ namespace doob.PgSql.Statements
         public Update SetValueFromObject(object @object)
         {
 
-            var nDict = JSON.ToDictionary(@object);
+            
+            var nDict = @object.ToColumsDictionary(); // Converter.Json.ToDictionary(@object);
 
             //Dictionary<string, object> tempDict = null;
             //if (@object is JObject)

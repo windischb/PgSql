@@ -11,13 +11,14 @@ using doob.PgSql.Helper;
 using doob.PgSql.Logging;
 using doob.PgSql.Tables;
 using Npgsql;
+using Reflectensions.Helpers;
 
 namespace doob.PgSql.Listener
 {
 
     internal class DMLTriggerListener : IDisposable
     {
-       
+
 
         private static readonly ILog Logger = LogProvider.For<DMLTriggerListener>();
 
@@ -39,7 +40,8 @@ namespace doob.PgSql.Listener
         {
             AddTableToListen(table);
             SendCommand(ConnectionCommand.Connect);
-            return _tableNotificationSubject.Where(n => n.Schema.Equals(table.GetConnectionString().SchemaName) && n.Table.Equals(table.GetConnectionString().TableName)).AsObservable();
+           return _tableNotificationSubject
+               .Where(n => n?.Schema?.Equals(table.GetConnectionString().SchemaName) == true && n?.Table?.Equals(table.GetConnectionString().TableName) == true).AsObservable();
         }
 
         internal IObservable<TriggerNotification> TriggerNotificationEntity(ITable table)
@@ -47,22 +49,30 @@ namespace doob.PgSql.Listener
             AddTableToListen(table);
             SendCommand(ConnectionCommand.Connect);
             return _tableNotificationSubject
-                .Where(n => n.Schema.Equals(table.GetConnectionString().SchemaName) && n.Table.Equals(table.GetConnectionString().TableName))
+                .Where(n => n?.Schema?.Equals(table.GetConnectionString().SchemaName) == true && n?.Table?.Equals(table.GetConnectionString().TableName) == true)
                 .Select(notifyObject =>
                     {
-                        if (notifyObject.Action != TriggerAction.Delete)
+                        try
                         {
-                            var foundEntry = GetTable(notifyObject.Table).QueryByPrimaryKey(notifyObject.EventData);
-                            if (foundEntry != null)
+                            if (notifyObject.Action != TriggerAction.Delete)
                             {
-                                notifyObject.EventData = foundEntry;
+                                var foundEntry = GetTable(notifyObject.Table).QueryByPrimaryKey(notifyObject.EventData);
+                                if (foundEntry != null)
+                                {
+                                    notifyObject.EventData = foundEntry;
+                                }
+                                else
+                                {
+                                    notifyObject.Action = notifyObject.Action == TriggerAction.Insert
+                                        ? TriggerAction.DeletedInsert
+                                        : TriggerAction.DeletedUpdate;
+                                }
                             }
-                            else
-                            {
-                                notifyObject.Action = notifyObject.Action == TriggerAction.Insert
-                                    ? TriggerAction.DeletedInsert
-                                    : TriggerAction.DeletedUpdate;
-                            }
+                            
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Error(() => $"[{Id}] {e.Message}");
                         }
                         return notifyObject;
                     })
@@ -88,24 +98,24 @@ namespace doob.PgSql.Listener
         public void SendCommand(ConnectionCommand command) => _command.OnNext(command);
         private void InitCommands()
         {
-            _command.Subscribe(async s => {
+            _command.Subscribe(async s =>
+            {
 
                 Logger.Debug(() => $"[{Id}] Incomming Command: {s}");
                 switch (s)
                 {
-                    
+
                     case ConnectionCommand.Connect:
                     case ConnectionCommand.Reconnect:
                     {
-                        
-                            if (_currentConnectionState == ListeningConnectionState.Connecting || _currentConnectionState == ListeningConnectionState.Connected)
-                                return;
 
-                            SetState(ListeningConnectionState.Connecting);
-                           
-                            Task.Run(() => startListen(), _tokenSource.Token);
-                        
-                        
+                        if (_currentConnectionState != ListeningConnectionState.Disconnected && _currentConnectionState != ListeningConnectionState.Error)
+                            return;
+
+                        SetState(ListeningConnectionState.Connecting);
+                        Task.Run(() => startListen(), _tokenSource.Token);
+
+
                         break;
                     }
                     case ConnectionCommand.Disconnect:
@@ -117,74 +127,172 @@ namespace doob.PgSql.Listener
             });
         }
 
-        //private void StartListening()
-        //{
-        //    if(_currentConnectionState == ListeningConnectionState.Open || _currentConnectionState == ListeningConnectionState.Connecting)
-        //        return;
-
-        //    //Console.WriteLine($"StartListening => ");
-        //    //ConnectionStateChanges().Subscribe(state => Console.WriteLine($"ConnectionState => {state}"));
-
-        //    _reconnectSubscription = _connectionStateChangeSubject.Subscribe(Reconnect);
-        //    _schema.CreateTriggerFunction(true);
-
-        //    foreach (var table in _listenOnTables)
-        //    {
-        //        table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
-        //    }
-
-            
-
-        //    Task.Run(() =>
-        //    {
-        //        Listen();
-        //    });
-        //}
-
-        //private void StopListening()
-        //{
-        //    _tokenSource?.Cancel();
-        //}
-
+      
         private DMLTriggerListener AddTableToListen(params ITable[] tables)
         {
-            lock (_listenOnTablesLock)
+            try
             {
-                foreach (var table in tables)
+                lock (_listenOnTablesLock)
                 {
-                    if (_listenOnTables.Contains(table))
-                        continue;
-
-                    if (_currentConnectionState == ListeningConnectionState.Connected)
+                    foreach (var table in tables)
                     {
-                        table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
+                        if (_listenOnTables.Contains(table))
+                            continue;
+
+                        if (_currentConnectionState == ListeningConnectionState.Connected)
+                        {
+                            table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
+                        }
+                        _listenOnTables.Add(table);
                     }
-                    _listenOnTables.Add(table);
                 }
             }
+            catch (Exception e)
+            {
+                Logger.Error(() => $"[{Id}] {e.Message}");
+                
+            }
             
-
             return this;
         }
 
-        
-        
+
+
 
         private void SetState(ListeningConnectionState state)
         {
             
+            Logger.Debug(() => $"Set State {state}");
             _currentConnectionState = state;
             _connectionStateChangeSubject.OnNext(_currentConnectionState);
 
         }
+
+        private object listeningLock = new object();
+        private async Task startListenAsync(CancellationToken token)
+        {
+
+            lock (listeningLock)
+            {
+                if (_currentConnectionState != ListeningConnectionState.Disconnected && _currentConnectionState != ListeningConnectionState.Error)
+                    return;
+
+                SetState(ListeningConnectionState.Connecting);
+            }
+
+            IDisposable subscription = null;
+
+            try
+            {
+                _npgsqlConnection?.CloseConnection();
+                var connstr = Build.ConnectionStringBuilder(_schema.GetConnectionString())
+                    .WithTcpKeepalive().WithConnectionIdleLifetime(120).GetConnection().ToNpgSqlConnectionString();
+
+                _npgsqlConnection = new NpgsqlConnection(connstr);
+                _npgsqlConnection.Notification += _OnEvent;
+
+                
+              
+
+
+                _schema.CreateTriggerFunction(true);
+
+                lock (_listenOnTablesLock)
+                {
+                    foreach (var table in _listenOnTables)
+                    {
+                        table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
+                    }
+                }
+
+
+                _npgsqlConnection.OpenConnection();
+                NpgsqlCommand prepareCommand = _npgsqlConnection.CreateCommand();
+                prepareCommand.CommandText = $"LISTEN \"Notify-TableEvent\";";
+                prepareCommand.ExecuteNonQuery();
+                prepareCommand.Dispose();
+
+                SetState(ListeningConnectionState.Connected);
+
+
+                while (true)
+                {
+                    try
+                    {
+
+                        _npgsqlConnection.OpenConnection();
+
+                        if (_currentConnectionState != ListeningConnectionState.Connected)
+                            SetState(ListeningConnectionState.Connected);
+
+                        await _npgsqlConnection.WaitAsync(token);
+
+
+
+
+
+                        //if (!_tableNotificationSubject.HasObservers)
+                        //{
+                        //    break;
+                        //}
+
+                        if (_tokenSource.Token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error(() => $"[{Id}]InnerConnectionError: {e.Message}, InnerConnectionState: {_npgsqlConnection?.State}");
+                        SetState(ListeningConnectionState.Reconnecting);
+                        AsyncHelper.RunSync(() => Task.Delay(1000, token));
+
+                    }
+
+
+                }
+
+                NpgsqlCommand closeCommand = _npgsqlConnection.CreateCommand();
+                closeCommand.CommandText = $"UNLISTEN \"Notify-TableEvent\";";
+                closeCommand.ExecuteNonQuery();
+                closeCommand.Dispose();
+                SetState(ListeningConnectionState.Disconnected);
+
+
+            }
+            catch (Exception ex)
+            {
+
+                SetState(ListeningConnectionState.Error);
+                Logger.Error(() => $"[{Id}] {ex.Message}");
+            }
+            finally
+            {
+                
+                if (_npgsqlConnection != null)
+                {
+                    _npgsqlConnection.Notification -= _OnEvent;
+                    _npgsqlConnection.CloseConnection();
+                    _npgsqlConnection = null;
+                }
+                
+            }
+
+
+
+        }
+
         private void startListen()
         {
-            
+
             lock (_listenerLock)
             {
                 _npgsqlConnection?.CloseConnection();
+                var connstr = Build.ConnectionStringBuilder(_schema.GetConnectionString())
+                    .WithConnectionIdleLifetime(10).GetConnection().ToNpgSqlConnectionString();
 
-                _npgsqlConnection = new NpgsqlConnection(_schema.GetConnectionString().ToNpgSqlConnectionString());// new PgSqlExecuter(_schema.GetConnectionString()).BuildNpgSqlConnetion();
+                _npgsqlConnection = new NpgsqlConnection(connstr);
+                
                 _npgsqlConnection.Notification += _OnEvent;
 
                 try
@@ -198,7 +306,7 @@ namespace doob.PgSql.Listener
                             table.TriggerCreate("Notify-TableEvent", "Notify-TableEvent", true);
                         }
                     }
-                    
+
 
                     _npgsqlConnection.OpenConnection();
                     NpgsqlCommand prepareCommand = _npgsqlConnection.CreateCommand();
@@ -208,24 +316,11 @@ namespace doob.PgSql.Listener
 
                     SetState(ListeningConnectionState.Connected);
 
-                  
+
                     while (true)
                     {
                         _npgsqlConnection.OpenConnection();
-                        var timeout = _npgsqlConnection.Wait(TimeSpan.FromSeconds(3));
-
-                        //var timeout = Task.Run(() =>
-                        //{
-                        //    try
-                        //    {
-                        //        return !_npgsqlConnection.Wait(TimeSpan.FromSeconds(5));
-                        //    }
-                        //    catch (Exception)
-                        //    {
-                        //        return false;
-                        //    }
-
-                        //}, _tokenSource.Token).GetAwaiter().GetResult();
+                        var timeout = _npgsqlConnection.Wait(TimeSpan.FromSeconds(10));
 
                         if (!_tableNotificationSubject.HasObservers)
                         {
@@ -257,7 +352,7 @@ namespace doob.PgSql.Listener
                     closeCommand.ExecuteNonQuery();
                     closeCommand.Dispose();
                     SetState(ListeningConnectionState.Disconnected);
-                    
+
 
                 }
                 catch (Exception ex)
@@ -278,65 +373,45 @@ namespace doob.PgSql.Listener
 
         private void _OnEvent(object sender, NpgsqlNotificationEventArgs npgsqlNotificationEventArgs)
         {
-            
-            var notifyObject = JSON.ToObject<NotificationObject>(npgsqlNotificationEventArgs.AdditionalInformation);
 
-            var fqdn = $"{notifyObject.Schema}.{notifyObject.Table}";
-
-            var notify = false;
-            foreach (var s in _listenOnTables)
+            try
             {
-                var tablefqdn = $"{s.GetConnectionString().SchemaName}.{s.GetConnectionString().TableName}";
-                if (Wildcard.IsMatch(fqdn, tablefqdn))
+                var notifyObject = Converter.Json.ToObject<NotificationObject>(npgsqlNotificationEventArgs.AdditionalInformation);
+
+                var fqdn = $"{notifyObject.Schema}.{notifyObject.Table}";
+
+                var notify = false;
+                foreach (var s in _listenOnTables)
                 {
-                    notify = true;
-                    break;
+                    var tablefqdn = $"{s.GetConnectionString().SchemaName}.{s.GetConnectionString().TableName}";
+                    if (Wildcard.IsMatch(fqdn, tablefqdn))
+                    {
+                        notify = true;
+                        break;
+                    }
+
                 }
 
+                if (!notify)
+                    return;
+
+                var notifyObj = new TriggerNotification()
+                {
+                    Pid = npgsqlNotificationEventArgs.PID,
+                    Condition = npgsqlNotificationEventArgs.Condition,
+                    Schema = notifyObject.Schema,
+                    Table = notifyObject.Table,
+                    Action = notifyObject.Action,
+                    EventData = notifyObject.Data
+                };
+
+                _tableNotificationSubject.OnNext(notifyObj);
             }
-
-            if (!notify)
-                return;
-
-            var notifyObj = new TriggerNotification()
+            catch (Exception e)
             {
-                Pid = npgsqlNotificationEventArgs.PID,
-                Condition = npgsqlNotificationEventArgs.Condition,
-                Schema = notifyObject.Schema,
-                Table = notifyObject.Table,
-                Action = notifyObject.Action,
-                EventData = notifyObject.Data
-            };
-
-            //Dictionary<string, object> returnObject = null;
-
-            //var table = GetTable(notifyObject.Table);
-            //switch (notifyObject.Mode)
-            //{
-            //    case ListenMode.TableEntryPrimaryKeys:
-            //        returnObject = notifyObject.Data;
-            //        break;
-            //    case ListenMode.TableEntry:
-            //        if (notifyObject.Action == TriggerAction.Delete) {
-            //            returnObject = notifyObject.Data;
-            //        } else {
-            //            returnObject = table.QueryByPrimaryKey(notifyObject.Data).CloneTo<Dictionary<string, object>>();
-            //        }
-            //        break;
-            //}
-
-
-            //var notifyObj = new TriggerNotification()
-            //{
-            //    Pid = npgsqlNotificationEventArgs.PID,
-            //    Condition = npgsqlNotificationEventArgs.Condition,
-            //    Schema = notifyObject.Schema,
-            //    Table = notifyObject.Table,
-            //    Action = notifyObject.Action,
-            //    EventData = returnObject
-            //};
-
-            _tableNotificationSubject.OnNext(notifyObj);
+                Logger.Error(() => $"[{Id}]OnNotification {e.Message}");
+            }
+           
         }
 
         private ObjectTable GetTable(string tableName)
@@ -345,13 +420,13 @@ namespace doob.PgSql.Listener
             return new ObjectTable(connstr).NotTyped();
         }
 
-       
+
 
         #region internal handling
 
         private async Task OnConnectionStateChanges(ListeningConnectionState stateChangeEventArgs)
         {
-            Logger.Debug(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+            
 
             switch (stateChangeEventArgs)
             {
@@ -362,10 +437,25 @@ namespace doob.PgSql.Listener
                 }
                 case ListeningConnectionState.Error:
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    Logger.Error(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+                    await Task.Delay(TimeSpan.FromSeconds(3));
                     SendCommand(ConnectionCommand.Reconnect);
                     break;
                 }
+                case ListeningConnectionState.Disconnected:
+                    Logger.Debug(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+                    break;
+                case ListeningConnectionState.Connected:
+                    Logger.Info(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+                    break;
+                case ListeningConnectionState.Connecting:
+                    Logger.Debug(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+                    break;
+                case ListeningConnectionState.Reconnecting:
+                    Logger.Warn(() => $"[{Id}] State Changed: {stateChangeEventArgs}");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(stateChangeEventArgs), stateChangeEventArgs, null);
             }
         }
 
@@ -401,7 +491,7 @@ namespace doob.PgSql.Listener
             Dispose(false);
         }
 
-       
+
     }
 
 
@@ -479,7 +569,7 @@ namespace doob.PgSql.Listener
 
 
 
-        
+
     }
 
 }

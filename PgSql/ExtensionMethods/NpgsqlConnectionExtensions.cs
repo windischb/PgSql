@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Npgsql;
@@ -40,12 +41,21 @@ namespace doob.PgSql.ExtensionMethods
         }
 
 
+        private static bool HasAnyFlagOf(Enum @enum, params Enum[] flags)
+        {
+            return flags.Any(@enum.HasFlag);
+        }
+
         internal static NpgsqlConnection OpenConnection(this NpgsqlConnection connection)
         {
             if (connection == null)
                 throw new ArgumentNullException(nameof(connection));
 
-            
+
+            if (HasAnyFlagOf(connection.State, ConnectionState.Open, ConnectionState.Connecting,
+                ConnectionState.Executing, ConnectionState.Fetching))
+                return connection;
+
             switch (connection.State)
             {
                 case ConnectionState.Open:
@@ -66,7 +76,6 @@ namespace doob.PgSql.ExtensionMethods
                         connection.Open();
                         break;
                     }
-               
             }
             return connection;
         }

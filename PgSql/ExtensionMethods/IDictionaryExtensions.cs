@@ -61,15 +61,4 @@ namespace doob.PgSql.ExtensionMethods
         
     }
 
-    public static class IDictionaryExtensions
-    {
-        public static Dictionary<string, T> ToCaseInsensitive<T>(this IDictionary<string, T> dictionary)
-        {
-            return new Dictionary<string, T>(dictionary, StringComparer.OrdinalIgnoreCase);
-        }
-        public static Dictionary<string, object> ToCaseInsensitive<T>(this Dictionary<string, object> dictionary)
-        {
-            return new Dictionary<string, object>(dictionary, StringComparer.OrdinalIgnoreCase);
-        }
-    }
 }

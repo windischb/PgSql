@@ -55,23 +55,19 @@ namespace doob.PgSql.Tables
 
         public HistoryTable<T> CreateIfNotExists()
         {
-            var tbl = GetSchema().CreateIfNotExists().CreateTable<HistoryEntity<object>>(GetConnectionString().TableName);
-            return EnsureExists();
-        }
-
-        public new HistoryTable<T> EnsureExists()
-        {
-
-            var ret = (HistoryTable<T>)base.EnsureExists();
+            GetDatabase().ExtensionCreate("hstore", false);
+            var tbl = GetSchema().CreateIfNotExists().CreateTable<HistoryEntity<T>>(GetConnectionString().TableName);
 
             Execute().ExecuteNonQuery(TableStatements.AddHistoryTrigger(_parentTable.GetSchema()));
             _parentTable.TriggerCreate("doob_pgsql_writeHistory", "WriteHistory", true);
-            return ret;
+
+            return this;
         }
+
     }
 
 
-
+   
     public class HistoryEntity<T>
     {
         [PgSqlPrimaryKey(DefaultValues.Serial.BigSerial)]

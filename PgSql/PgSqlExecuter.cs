@@ -11,7 +11,7 @@ using doob.PgSql.TypeMapping;
 using Newtonsoft.Json.Linq;
 using Npgsql;
 using NpgsqlTypes;
-
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql
 {
@@ -58,7 +58,7 @@ namespace doob.PgSql
         {
             var com = new NpgsqlCommand(sqlCommand.Command, _connection);
 
-            _logger.Debug(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
+            _logger.Trace(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
 
             foreach (var param in sqlCommand.Parameters)
             {
@@ -76,7 +76,7 @@ namespace doob.PgSql
         {
             var com = new NpgsqlCommand(sqlCommand.Command, _connection);
 
-            _logger.Debug(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
+            _logger.Trace(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
 
             foreach (var param in sqlCommand.Parameters)
             {
@@ -115,15 +115,21 @@ namespace doob.PgSql
         public int ExecuteNonQuery(NpgsqlCommand sqlCommand)
         {
 
-            _logger.Debug(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
+            _logger.Trace(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
 
-            int result;
+            int result = 0;
             try
             {
                 result = sqlCommand.ExecuteNonQuery();
             }
+            //catch (PostgresException pgEx)
+            //{
+            //    if (pgEx.SqlState != "XA0000")
+            //        throw;
+            //}
             catch (Exception e)
             {
+
                 _logger.ErrorFormat($"ExecuteNonQuery::{{e}}", e);
                 throw;
             }
@@ -149,7 +155,7 @@ namespace doob.PgSql
         public async Task<int> ExecuteNonQueryAsync(NpgsqlCommand sqlCommand)
         {
 
-            _logger.Debug(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
+            _logger.Trace(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
 
             int result;
 
@@ -187,7 +193,7 @@ namespace doob.PgSql
         }
         public IEnumerable<JObject> ExecuteReader(NpgsqlCommand sqlCommand)
         {
-            _logger.Debug(() => $"ExecuteReader::{sqlCommand.CommandText}");
+            _logger.Trace(() => $"ExecuteReader::{sqlCommand.CommandText}");
 
             List<JObject> items = new List<JObject>();
 
@@ -236,7 +242,7 @@ namespace doob.PgSql
         }
         public async Task<IEnumerable<JObject>> ExecuteReaderAsync(NpgsqlCommand sqlCommand)
         {
-            _logger.Debug(() => $"ExecuteReader::{sqlCommand.CommandText}");
+            _logger.Trace(() => $"ExecuteReader::{sqlCommand.CommandText}");
 
             List<JObject> items = new List<JObject>();
 
@@ -275,28 +281,28 @@ namespace doob.PgSql
 
         public IEnumerable<T> ExecuteReader<T>(string sqlCommand)
         {
-            return ExecuteReader(sqlCommand).Select(JSON.ToObject<T>);
+            return ExecuteReader(sqlCommand).Select(Converter.Json.ToObject<T>);
         }
         public IEnumerable<T> ExecuteReader<T>(PgSqlCommand sqlCommand)
         {
-            return ExecuteReader(sqlCommand).Select(JSON.ToObject<T>);
+            return ExecuteReader(sqlCommand).Select(Converter.Json.ToObject<T>);
         }
         public IEnumerable<T> ExecuteReader<T>(NpgsqlCommand sqlCommand)
         {
-            return ExecuteReader(sqlCommand).Select(JSON.ToObject<T>);
+            return ExecuteReader(sqlCommand).Select(Converter.Json.ToObject<T>);
         }
 
         public Task<IEnumerable<T>> ExecuteReaderAsync<T>(string sqlCommand)
         {
-            return ExecuteReaderAsync(sqlCommand).SelectAsync(JSON.ToObject<T>);
+            return ExecuteReaderAsync(sqlCommand).SelectAsync(Converter.Json.ToObject<T>);
         }
         public Task<IEnumerable<T>> ExecuteReaderAsync<T>(PgSqlCommand sqlCommand)
         {
-            return ExecuteReaderAsync(sqlCommand).SelectAsync(JSON.ToObject<T>);
+            return ExecuteReaderAsync(sqlCommand).SelectAsync(Converter.Json.ToObject<T>);
         }
         public Task<IEnumerable<T>> ExecuteReaderAsync<T>(NpgsqlCommand sqlCommand)
         {
-            return ExecuteReaderAsync(sqlCommand).SelectAsync(JSON.ToObject<T>);
+            return ExecuteReaderAsync(sqlCommand).SelectAsync(Converter.Json.ToObject<T>);
         }
         #endregion
 
@@ -318,7 +324,7 @@ namespace doob.PgSql
         {
             if (sqlCommand == null) throw new ArgumentNullException(nameof(sqlCommand));
 
-            _logger.Debug(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
+            _logger.Trace(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
 
             TOut result;
             try
@@ -355,7 +361,7 @@ namespace doob.PgSql
         public async Task<TOut> ExecuteScalarAsync<TOut>(NpgsqlCommand sqlCommand)
         {
 
-            _logger.Debug(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
+            _logger.Trace(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
 
             TOut result;
 
@@ -452,7 +458,7 @@ namespace doob.PgSql
 
                 
 
-                if (param.Column?.DotNetType?.IsEnum == true || param.Column?.DotNetType.IsNullable() == true && param.Column?.DotNetType.GetInnerTypeFromNullable().IsEnum == true)
+                if (param.Column?.DotNetType?.IsEnum == true || param.Column?.DotNetType.IsNullableType() == true && param.Column?.DotNetType.GetInnerTypeFromNullable().IsEnum == true)
                 {
                     switch (param.Value)
                     {
@@ -509,7 +515,7 @@ namespace doob.PgSql
                         {
                             if (param.Value is IEnumerable arr) {
                                 foreach (var o in arr) {
-                                    objAr.Add(JSON.ToJson(o));
+                                    objAr.Add(Converter.Json.ToJson(o));
                                 }
                             }
                                 
@@ -520,12 +526,12 @@ namespace doob.PgSql
                     }
                     case NpgsqlDbType.Json:
                     case NpgsqlDbType.Jsonb: {
-                        value = JSON.ToJson(param.Value);
+                        value = Converter.Json.ToJson(param.Value);
                         break;
                     }
                     case NpgsqlDbType.Array | NpgsqlDbType.Uuid: {
-                        var json = JSON.ToJson(param.Value);
-                        value = JSON.ToObject<List<Guid>>(json);
+                        var json = Converter.Json.ToJson(param.Value);
+                        value = Converter.Json.ToObject<List<Guid>>(json);
 
                         break;
                     }

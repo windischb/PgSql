@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using doob.Reflectensions;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.ExtensionMethods
 {
@@ -13,24 +13,8 @@ namespace doob.PgSql.ExtensionMethods
             var obj = await task;
             if (obj == null)
                 return (default);
-            return obj.CastTo<TResult>();
+            return obj.ConvertTo<TResult>();
         }
 
-        public static async Task<IEnumerable<TResult>> SelectAsync<TSource, TResult>(this Task<IEnumerable<TSource>> source, Func<TSource, TResult> selector) {
-            var ie = await source;
-            return ie.Select(selector);
-        }
-
-        public static async Task<T> FirstOrDefaultAsync<T>(this Task<IEnumerable<T>> source)
-        {
-            var ie = await source;
-            return ie.FirstOrDefault();
-        }
-
-        public static async Task<List<T>> ToListAsync<T>(this Task<IEnumerable<T>> source)
-        {
-            var ie = await source;
-            return ie.ToList();
-        }
     }
 }

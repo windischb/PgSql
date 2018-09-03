@@ -147,6 +147,31 @@ namespace doob.PgSql
         }
         private string _applicationName;
 
+        [ConnectionStringMember("ConnectionIdleLifetime")]
+        public int ConnectionIdleLifetime
+        {
+            get {
+                if (_connectionIdleLifetime == 0)
+                {
+                    ConnectionIdleLifetime = 0;
+                }
+                return _connectionIdleLifetime;
+            }
+            internal set { _connectionIdleLifetime = value != 0 ? value : 10; }
+        }
+        private int _connectionIdleLifetime;
+
+
+        [ConnectionStringMember("TcpKeepalive")]
+        public bool TcpKeepalive
+        {
+            get { return _tcpKeepalive; }
+            internal set {
+                _tcpKeepalive = value;
+            }
+        }
+        private bool _tcpKeepalive;
+
 
         public ConnectionString() : this(null)
         {

@@ -91,7 +91,7 @@ namespace doob.PgSql
                 }
                 else
                 {
-                    jToken = JSON.ToJToken(expressionValueItem.Value);// JToken.FromObject(expressionValueItem.Value, JsonSerializer.Create(Defaults.JsonSerializerSettings));
+                    jToken = Converter.Json.ToJToken(expressionValueItem.Value);
                 }
 
                 string value = null;

@@ -11,15 +11,22 @@ namespace PgSql.Tests
 {
     public class LTreeTests
     {
-        private Schema GetSchema()
+        private Schema Schema;
+
+
+
+        public LTreeTests()
         {
             var conbuilder = ConnectionString.Build()
                 .WithCredential("postgres", "postgres")
                 .WithDatabase("Tests")
                 .WithSchema("LTreeTests");
 
+            Schema = new Schema(conbuilder);
+            Schema.Drop(true);
+            Schema.CreateIfNotExists();
 
-            return new Schema(conbuilder).CreateIfNotExists();
+            
         }
         
         [Fact]
@@ -27,7 +34,7 @@ namespace PgSql.Tests
 
             var tbd = Build.TableDefinition<ConfigurationItem>();
 
-            var table = GetSchema().CreateTable("Test1", tbd);
+            var table = Schema.CreateTable("Test1", tbd);
 
             var cfgi = new ConfigurationItem();
             cfgi.ParentFolder = "";
@@ -41,11 +48,13 @@ namespace PgSql.Tests
 
             table.Insert(cfgi2);
 
+
             var cfgi3 = new ConfigurationItem();
-            cfgi3.ParentFolder = "";
-            cfgi3.Name = "test";
+            cfgi3.ParentFolder = "HPOO";
+            cfgi3.Name = "test1";
 
             table.Insert(cfgi3);
+
         }
     }
 

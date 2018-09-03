@@ -24,7 +24,7 @@ namespace PgSql.Tests
             tmodel.Id = Guid.NewGuid().ToString();
             tmodel.Revision = 1;
 
-            var json = JSON.ToJson(tmodel, true);
+            var json = Converter.Json.ToJson(tmodel, true);
 
             _output.WriteLine(json);
         }
@@ -34,7 +34,7 @@ namespace PgSql.Tests
 
             var json = "{\"id_\": \"c837bed4-bdad-4120-8f18-5ce383a8de4e\",\"rev_\": 1,\"worker_id_\": null}";
 
-            var z = JSON.ToObject<TestModel>(json);
+            var z = Converter.Json.ToObject<TestModel>(json);
 
             _output.WriteLine(z.Id);
 

@@ -114,7 +114,7 @@ namespace doob.PgSql
             var l = new List<string>();
             foreach (var exp in new PgSqlExecuter(GetConnectionString()).ExecuteReader(SQLStatements.GetTables(GetConnectionString().SchemaName)))
             {
-                var obj = JSON.ToObject<Dictionary<string, object>>(exp);
+                var obj = Converter.Json.ToObject<Dictionary<string, object>>(exp);
                 l.Add(obj["table_name"].ToString());
             }
 

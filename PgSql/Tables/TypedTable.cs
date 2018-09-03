@@ -10,6 +10,7 @@ using doob.PgSql.Interfaces.Where;
 using doob.PgSql.Interfaces.Where.Typed;
 using doob.PgSql.Listener;
 using doob.PgSql.Statements;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.Tables
 {
@@ -78,12 +79,16 @@ namespace doob.PgSql.Tables
 
         public IEnumerable<T> Query(params ISelectMember[] clauses)
         {
-            return base._Query(clauses).Select(JSON.ToObject<T>);
+            return base._Query(clauses).Select(Converter.Json.ToObject<T>);
         }
 
         public T QueryByPrimaryKey(object value)
         {
-            return base._QueryByPrimaryKey(value).ToObject<T>();
+            var res = base._QueryByPrimaryKey(value);
+            if (res != null)
+                return res.ToObject<T>();
+
+            return default(T);
         }
 
 
@@ -96,7 +101,7 @@ namespace doob.PgSql.Tables
 
         public Task<IEnumerable<T>> QueryAsync(params ISelectMember[] clauses)
         {
-            return base._QueryAsync(clauses)?.SelectAsync(JSON.ToObject<T>);
+            return base._QueryAsync(clauses)?.SelectAsync(Converter.Json.ToObject<T>);
         }
 
         public Task<T> QueryByPrimaryKeyAsync(object value)
@@ -115,7 +120,7 @@ namespace doob.PgSql.Tables
         }
         public IEnumerable<Dictionary<string, object>> Insert(IEnumerable<T> documents, List<string> returnValues = null)
         {
-            return base.Insert((IEnumerable<object>)documents, returnValues).Select(JSON.ToObject<Dictionary<string, object>>);
+            return base.Insert((IEnumerable<object>)documents, returnValues).Select(Converter.Json.ToObject<Dictionary<string, object>>);
         }
 
         public Task<Dictionary<string, object>> InsertAsync(T document, List<string> returnValues = null)
@@ -124,7 +129,7 @@ namespace doob.PgSql.Tables
         }
         public Task<IEnumerable<Dictionary<string, object>>> InsertAsync(IEnumerable<T> documents, List<string> returnValues = null)
         {
-            return base.InsertAsync((IEnumerable<object>)documents, returnValues).SelectAsync(JSON.ToObject<Dictionary<string, object>>);
+            return base.InsertAsync((IEnumerable<object>)documents, returnValues).SelectAsync(Converter.Json.ToObject<Dictionary<string, object>>);
         }
 
         #endregion

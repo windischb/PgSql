@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using doob.PgSql.ExtensionMethods;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.Tables
 {

@@ -73,6 +73,22 @@ namespace doob.PgSql
             return this;
         }
 
+        public ConnectionStringBuilder WithTcpKeepalive()
+        {
+            return WithTcpKeepalive(true);
+        }
+        public ConnectionStringBuilder WithTcpKeepalive(bool value)
+        {
+            _connectionstring.TcpKeepalive = value;
+            return this;
+        }
+
+        public ConnectionStringBuilder WithConnectionIdleLifetime(int value)
+        {
+            _connectionstring.ConnectionIdleLifetime = value;
+            return this;
+        }
+
         //public ConnectionBuilder WithTableHistoryEnabled(bool enable = true)
         //{
         //    _connectionstring.EnableTableHistory = enable;

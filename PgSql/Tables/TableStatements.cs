@@ -13,6 +13,12 @@ namespace doob.PgSql.Tables
                 throw new ArgumentNullException(nameof(functionName));
 
             return $@"
+
+BEGIN;
+
+SELECT pg_advisory_xact_lock({GetRandomLong()});
+
+
 CREATE OR REPLACE FUNCTION ""{schemaName}"".""{functionName}""() RETURNS TRIGGER AS $$
 
     DECLARE
@@ -59,7 +65,7 @@ CREATE OR REPLACE FUNCTION ""{schemaName}"".""{functionName}""() RETURNS TRIGGER
     END
 $$ LANGUAGE plpgsql;
             
-    
+COMMIT;
 ";
 
         }
@@ -72,6 +78,11 @@ $$ LANGUAGE plpgsql;
 
 
             return $@"
+
+BEGIN;
+
+SELECT pg_advisory_xact_lock({GetRandomLong()});
+
 CREATE OR REPLACE FUNCTION ""{schema.GetConnectionString().SchemaName}"".""WriteHistory""() RETURNS TRIGGER AS $$
 
     DECLARE
@@ -113,12 +124,28 @@ CREATE OR REPLACE FUNCTION ""{schema.GetConnectionString().SchemaName}"".""Write
 
     END
 $$ LANGUAGE plpgsql;
+
+COMMIT;
 ";
 
         }
 
 
+        private static long GetRandomLong()
+        {
+            Random rnd = new Random();
 
+            byte[] buf = new byte[8];
+            rnd.NextBytes(buf);
+            long longRand = BitConverter.ToInt64(buf, 0);
+
+            long result = (Math.Abs(longRand % (2000000000000000 - 1000000000000000)) + 1000000000000000);
+
+            long random_seed = (long)rnd.Next(1000, 5000);
+            random_seed = random_seed * result + rnd.Next(1000, 5000);
+
+            return ((long)(random_seed / 655) % 10000000000000001);
+        }
        
 
     }

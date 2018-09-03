@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Newtonsoft.Json.Linq;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.ExtensionMethods
 {
@@ -41,38 +42,17 @@ namespace doob.PgSql.ExtensionMethods
             return false;
         }
 
-        public static bool IsNullable(this Type type)
-        {
-            var typeInfo = type.GetTypeInfo();
-            return typeInfo.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
-        }
 
         public static Type GetInnerTypeFromNullable(this Type nullableType)
         {
-            return nullableType.GetGenericArguments()[0];
+            if (!nullableType.IsNullableType(false))
+                throw new ArgumentException($"'{nullableType}' is not a Nullable Type...");
+
+
+            return Nullable.GetUnderlyingType(nullableType);
         }
 
-        public static bool IsDictionaryType(this Type type)
-        {
-            var implementedInterfaces = type.GetInterfaces();
-            var ret = implementedInterfaces.Contains(typeof(IDictionary));
-            return ret;
-        }
-
-        public static bool IsListType(this Type type)
-        {
-            if (type.IsDictionaryType())
-                return false;
-
-            var targetType = typeof(IList<>);
-            var implementedInterfaces = type.GetInterfaces();
-            var ret = implementedInterfaces.Any(i => i.GetTypeInfo().IsGenericType
-                                                     && i.GetGenericTypeDefinition() == targetType);
-            if (!ret)
-                ret = implementedInterfaces.Contains(typeof(IEnumerable));
-
-            return ret;
-        }
+      
 
         private static readonly ConcurrentDictionary<Type, JTokenType> JTokenTypeCache = new ConcurrentDictionary<Type, JTokenType>();
         internal static JTokenType GetJTokenType(this Type type)
@@ -98,7 +78,7 @@ namespace doob.PgSql.ExtensionMethods
             try
             {
                 var inst = Activator.CreateInstance(type);
-                var jtype = JSON.ToJToken(inst).Type;
+                var jtype = Converter.Json.ToJToken(inst).Type;
                 return JTokenTypeCache.AddOrUpdate(type, jtype, (type1, tokenType) => jtype);
             }
             catch

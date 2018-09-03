@@ -33,7 +33,7 @@ namespace doob.PgSql.Listener
         protected override void _OnEvent(object sender, NpgsqlNotificationEventArgs npgsqlNotificationEventArgs)
         {
 
-            var notifyObject = JSON.ToObject<EventTriggerNotification>(npgsqlNotificationEventArgs.AdditionalInformation);
+            var notifyObject = Converter.Json.ToObject<EventTriggerNotification>(npgsqlNotificationEventArgs.AdditionalInformation);
 
             if (notifyObject.Schema != _connectionBuilder.GetConnection().SchemaName)
                 return;

@@ -6,6 +6,7 @@
         Disconnected = 0,
         Connected = 1,
         Connecting = 2,
-        Error = 4
+        Error = 4,
+        Reconnecting = 8
     }
 }

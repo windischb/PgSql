@@ -15,9 +15,11 @@ using doob.PgSql.Listener;
 using doob.PgSql.Logging;
 using doob.PgSql.Statements;
 using doob.PgSql.TypeMapping;
+
 using Newtonsoft.Json.Linq;
 using Npgsql;
 using Npgsql.Schema;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.Tables
 {
@@ -160,15 +162,20 @@ namespace doob.PgSql.Tables
 
         public void TriggerCreate(string triggerName, string triggerFunctionName, bool overwriteIfExists = false)
         {
+            var trans = BeginTransaction();
             var triggerExists = TriggerExists(triggerName);
 
             if (!triggerExists || overwriteIfExists)
             {
-                if (triggerExists)
-                    TriggerDrop(triggerName);
 
-                Execute().ExecuteNonQuery(SQLStatements.TableTriggerCreate(triggerName, triggerFunctionName, this));
+                if (triggerExists)
+                    trans.TriggerDrop(triggerName);
+
+                trans.Execute().ExecuteNonQuery(SQLStatements.TableTriggerCreate(triggerName, triggerFunctionName, this));
+               
             }
+            trans.CommitTransaction();
+            trans.EndTransaction();
         }
 
         #endregion
@@ -284,7 +291,7 @@ namespace doob.PgSql.Tables
         {
             var prNames = PostgresTableDefinition.PrimaryKeys();
             Dictionary<string, object> dict = new Dictionary<string, object>();
-            if (value.IsDictionaryType() || value.CanConvertToDictionary())
+            if (value.GetType().IsDictionaryType() || value.CanConvertToDictionary())
             {
                 dict = value.ToColumsDictionary();
             }
@@ -329,7 +336,7 @@ namespace doob.PgSql.Tables
         {
             var prNames = PostgresTableDefinition.PrimaryKeys();
             Dictionary<string, object> dict = new Dictionary<string, object>();
-            if (value.IsDictionaryType() || value.CanConvertToDictionary())
+            if (value.GetType().IsDictionaryType() || value.CanConvertToDictionary())
             {
                 dict = value.ToColumsDictionary();
             }

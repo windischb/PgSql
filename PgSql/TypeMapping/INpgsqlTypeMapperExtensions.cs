@@ -8,12 +8,13 @@ using System.Reflection;
 using System.Text;
 using doob.PgSql.CustomTypes;
 using doob.PgSql.ExtensionMethods;
-using doob.Reflectensions;
+using Reflectensions;
 using Newtonsoft.Json.Linq;
 using Npgsql;
 using Npgsql.PostgresTypes;
 using Npgsql.TypeMapping;
 using NpgsqlTypes;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.TypeMapping
 {
@@ -60,13 +61,13 @@ namespace doob.PgSql.TypeMapping
                 return NpgsqlDbType.Array | npgsqlTypeMapper.GetNpgsqlDbType(clrType.GetElementType());
             }
 
-            if (clrType.IsListType())
+            if (clrType.IsEnumerableType())
             {
                 if (clrType == typeof(byte[]))
                     return NpgsqlDbType.Bytea;
 
                 Type t = clrType;
-                if (clrType.GetTypeInfo().BaseType != null && clrType.GetTypeInfo().BaseType.IsListType())
+                if (clrType.GetTypeInfo().BaseType != null && clrType.GetTypeInfo().BaseType.IsEnumerableType())
                     t = clrType.GetTypeInfo().BaseType;
 
                 var genericType = t.GetGenericArguments().FirstOrDefault();

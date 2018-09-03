@@ -35,6 +35,12 @@ namespace doob.PgSql.ExtensionMethods {
                 dict.Add("ApplicationName", connectionString.ApplicationName);
             }
 
+            dict.Add("Connection Idle Lifetime", connectionString.ConnectionIdleLifetime.ToString());
+
+            if(connectionString.TcpKeepalive)
+                dict.Add("Tcp Keepalive", "true");
+
+
             return String.Join(";", dict.OrderBy(p => p.Key).Select(e => $"{e.Key}={e.Value}"));
         }
 

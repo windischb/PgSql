@@ -1,19 +1,12 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.ExtensionMethods
 {
     public static class StringExtensions
     {
-        public static string TrimToNull(this string input, params string[] trimCharacters)
-        {
-            if (String.IsNullOrEmpty(input))
-                return null;
 
-            return input.Trim(String.Join("", trimCharacters).ToCharArray());
-        }
-
-      
         public static string ClearString(this string input)
         {
             return input.TrimToNull(" ", "\"", ".");
