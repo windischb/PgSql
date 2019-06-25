@@ -81,9 +81,9 @@ namespace doob.PgSql.Clauses.Typed
             return this;
         }
 
-        public ITypedWhereClauseConnectionOr<T> Any(string propertyName, params object[] value)
+        public ITypedWhereClauseConnectionOr<T> Any<TField>(string propertyName, IEnumerable<TField> value)
         {
-            var expr = new ExpressionAny(propertyName, value);
+            var expr = new ExpressionAny<TField>(propertyName, value);
             Xpressions.Add(expr);
             return this;
         }
@@ -104,14 +104,14 @@ namespace doob.PgSql.Clauses.Typed
 
         public ITypedWhereClauseConnectionOr<T> Like(string propertyName, string value)
         {
-            var expr = new ExpressionLike(propertyName, value, true);
+            var expr = new ExpressionLike(propertyName, value, true, false);
             Xpressions.Add(expr);
             return this;
         }
 
-        public ITypedWhereClauseConnectionOr<T> Like(string propertyName, string value, bool ignoreCase)
+        public ITypedWhereClauseConnectionOr<T> Like(string propertyName, string value, bool ignoreCase, bool invertOrder)
         {
-            var expr = new ExpressionLike(propertyName, value, ignoreCase);
+            var expr = new ExpressionLike(propertyName, value, ignoreCase, invertOrder);
             Xpressions.Add(expr);
             return this;
         }
@@ -178,7 +178,17 @@ namespace doob.PgSql.Clauses.Typed
 
         public ITypedWhereClauseConnectionOr<T> Like<TField>(Expression<Func<T, TField>> expression, string value, bool ignoreCase)
         {
-            return Like(expression.GetPropertyName(), value, ignoreCase);
+            return Like(expression.GetPropertyName(), value, ignoreCase, false);
+        }
+
+        public ITypedWhereClauseConnectionOr<T> Like<TField>(string value, Expression<Func<T, TField>> expression)
+        {
+            return Like(expression.GetPropertyName(), value, false, true);
+        }
+
+        public ITypedWhereClauseConnectionOr<T> Like<TField>(string value, Expression<Func<T, TField>> expression, bool ignoreCase)
+        {
+            return Like(expression.GetPropertyName(), value, ignoreCase, true);
         }
 
         public ITypedWhereClauseLogicalOr<T> Or()

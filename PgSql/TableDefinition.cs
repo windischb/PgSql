@@ -212,7 +212,7 @@ namespace doob.PgSql
                         
                     
                     if (attr is PgSqlDefaultValueAttribute defaultvalue)
-                        col.DefaultValue(defaultvalue.Value?.ToString());
+                        col.DefaultValue(defaultvalue.OnCreate?.ToString());
 
                     if (attr is PgSqlUniqueAttribute unique)
                     {

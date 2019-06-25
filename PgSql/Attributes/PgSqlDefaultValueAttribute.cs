@@ -1,11 +1,12 @@
 ﻿namespace doob.PgSql.Attributes
 {
-    public class PgSqlDefaultValueAttribute : PgSqlValueAttribute
+    public class PgSqlDefaultValueAttribute : PgSqlAttribute
     {
+        public string OnCreate { get; private set; }
 
-        public PgSqlDefaultValueAttribute(string value)
+        public PgSqlDefaultValueAttribute(string onCreate)
         {
-            Value = value;
+            OnCreate = onCreate;
         }
     }
 }

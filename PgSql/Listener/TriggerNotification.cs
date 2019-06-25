@@ -15,6 +15,8 @@ namespace doob.PgSql.Listener
         public TriggerAction Action { get; set; }
         public object EventData { get; set; }
 
+        internal bool Resolved { get; set; }
+
         public TriggerNotification<T> To<T>()
         {
             var notify = new TriggerNotification<T>();

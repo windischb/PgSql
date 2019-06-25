@@ -83,23 +83,23 @@ namespace doob.PgSql.Clauses.NotTyped
             return this;
         }
 
-        public IWhereClauseConnectionAnd Any(string propertyName, params object[] value)
+        public IWhereClauseConnectionAnd Any<TField>(string propertyName, IEnumerable<TField> value)
         {
-            var expr = new ExpressionAny(propertyName, value);
+            var expr = new ExpressionAny<TField>(propertyName, value);
             Xpressions.Add(expr);
             return this;
         }
 
         public IWhereClauseConnectionAnd Like(string propertyName, string value)
         {
-            var expr = new ExpressionLike(propertyName, value, true);
+            var expr = new ExpressionLike(propertyName, value, true, false);
             Xpressions.Add(expr);
             return this;
         }
 
-        public IWhereClauseConnectionAnd Like(string propertyName, string value, bool ignoreCase)
+        public IWhereClauseConnectionAnd Like(string propertyName, string value, bool ignoreCase, bool invertOrder)
         {
-            var expr = new ExpressionLike(propertyName, value, ignoreCase);
+            var expr = new ExpressionLike(propertyName, value, ignoreCase, invertOrder);
             Xpressions.Add(expr);
             return this;
         }

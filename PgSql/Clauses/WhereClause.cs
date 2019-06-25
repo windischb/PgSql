@@ -103,21 +103,21 @@ namespace doob.PgSql.Clauses
             return this;
         }
 
-        public IWhereClauseConnectionBase Any(string propertyName, params object[] value)
+        public IWhereClauseConnectionBase Any<TField>(string propertyName, IEnumerable<TField> value)
         {
-            _first = new ExpressionAny(propertyName, value);
+            _first = new ExpressionAny<TField>(propertyName, value);
             return this;
         }
 
         public IWhereClauseConnectionBase Like(string propertyName, string value)
         {
-            _first = new ExpressionLike(propertyName, value, true);
+            _first = new ExpressionLike(propertyName, value, true, false);
             return this;
         }
 
-        public IWhereClauseConnectionBase Like(string propertyName, string value, bool ignoreCase)
+        public IWhereClauseConnectionBase Like(string propertyName, string value, bool ignoreCase, bool invertOrder)
         {
-            _first = new ExpressionLike(propertyName, value, ignoreCase);
+            _first = new ExpressionLike(propertyName, value, ignoreCase, invertOrder);
             return this;
         }
 

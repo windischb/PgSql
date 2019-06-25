@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using System.Reflection;
+using doob.PgSql.Attributes;
 using doob.PgSql.CustomTypes;
+using doob.PgSql.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Reflectensions.ExtensionMethods;
@@ -29,6 +31,8 @@ namespace doob.PgSql.ExtensionMethods
 
     internal static class ObjectExtensions
     {
+        private static readonly ILog Logger = LogProvider.GetCurrentClassLogger();
+
         public static T CloneTo<T>(this object @object)
         {
             if (@object == null)
@@ -66,7 +70,7 @@ namespace doob.PgSql.ExtensionMethods
         }
 
       
-        public static Dictionary<string, object> ToColumsDictionary(this object @object)
+        public static Dictionary<string, object> ToColumnsDictionary(this object @object, bool isUpdate)
         {
 
             switch (@object)
@@ -93,11 +97,66 @@ namespace doob.PgSql.ExtensionMethods
 
 
             return @object.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .ToDictionary(pInfo => pInfo.Name, pInfo => pInfo.GetValue(@object));
+                .Where(pInfo =>
+                {
+                    if (isUpdate)
+                    {
+                        var ignoreOnUpdate = pInfo.GetCustomAttribute<PgSqlIgnoreOnUpdateAttribute>();
+                        if (ignoreOnUpdate != null)
+                        {
+                            return false;
+                        }
+
+                    }
+
+                    return true;
+                })
+                .ToDictionary(pInfo => pInfo.Name, pInfo =>
+                {
+
+                    
+
+                    var setOnUpdateAttr = pInfo.GetCustomAttribute<PgSqlSetOnUpdateAttribute>();
+
+                    if (setOnUpdateAttr != null)
+                    {
+
+                        try
+                        {
+                            object retObj = null;
+                            switch (setOnUpdateAttr.OnUpdate)
+                            {
+                                case DefaultValues.DateTime.Now:
+                                {
+                                    retObj = DateTime.Now;
+                                    break;
+                                }
+                                default:
+                                {
+                                    retObj = setOnUpdateAttr.OnUpdate;
+                                    break;
+                                }
+                            }
+
+                            return retObj.ConvertTo(pInfo.PropertyType);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error(ex, ex.Message);
+                        }
+
+                    }
+                    return pInfo.GetValue(@object);
+                });
 
         }
 
-       
+
+        public static Dictionary<string, object> ToColumnsDictionary(this IEnumerable<PropertyInfo> props, object fromObject)
+        {
+            return props.ToDictionary(pInfo => pInfo.Name, pInfo => pInfo.GetValue(fromObject));
+        }
+
     }
 
 }

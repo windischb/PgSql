@@ -141,6 +141,10 @@ namespace doob.PgSql.TypeMapping
 
         public Type GetDotNetType(string pgTypeName)
         {
+
+            if (pgTypeName == "ltree")
+                return typeof(PgSqlLTree);
+
             var npgsqlDbType = GetNpgsqlDbType(pgTypeName);
             return GetDotNetType(npgsqlDbType);
         }
@@ -149,6 +153,9 @@ namespace doob.PgSql.TypeMapping
         {
             if (clrType == null)
                 return null;
+
+            if (clrType == typeof(PgSqlLTree))
+                return "ltree";
 
             var npgsqlDbType = GetNpgsqlDbType(clrType);
             return GetPostgresName(npgsqlDbType);

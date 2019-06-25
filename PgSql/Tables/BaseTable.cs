@@ -293,7 +293,7 @@ namespace doob.PgSql.Tables
             Dictionary<string, object> dict = new Dictionary<string, object>();
             if (value.GetType().IsDictionaryType() || value.CanConvertToDictionary())
             {
-                dict = value.ToColumsDictionary();
+                dict = value.ToColumnsDictionary(false);
             }
             else
             {
@@ -338,7 +338,7 @@ namespace doob.PgSql.Tables
             Dictionary<string, object> dict = new Dictionary<string, object>();
             if (value.GetType().IsDictionaryType() || value.CanConvertToDictionary())
             {
-                dict = value.ToColumsDictionary();
+                dict = value.ToColumnsDictionary(false);
             }
             else
             {
@@ -363,17 +363,50 @@ namespace doob.PgSql.Tables
         #region Insert
 
         protected JObject Insert<TAny>(TAny document, List<string> returnValues = null) {
-            return Insert<TAny>(new[] {document}, returnValues).FirstOrDefault();
+            return InsertWithConflict<TAny>(new[] {document}, returnValues, OnConflict.DoNothing()).FirstOrDefault();
         }
-        protected IEnumerable<JObject> Insert<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null) {
+        protected JObject InsertOrUpdate<TAny>(TAny document, List<string> returnValues = null)
+        {
+            return InsertWithConflict<TAny>(new[] { document }, returnValues, OnConflict.DoUpdate()).FirstOrDefault();
+        }
+
+        protected IEnumerable<JObject> Insert<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null) { 
+            return InsertWithConflict(documents, returnValues, OnConflict.DoUpdate());
+        }
+        protected IEnumerable<JObject> InsertOrUpdate<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null)
+        {
+            return InsertWithConflict(documents, returnValues, OnConflict.DoUpdate());
+        }
+
+        private IEnumerable<JObject> InsertWithConflict<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null, OnConflict onConflict = null)
+        {
+
+
             var insert = Statements.Insert.Into(GetTableName())
-                .AddColumnsFromTableDefinition(PostgresTableDefinition);
+                .AddColumnsFromTableDefinition(PostgresTableDefinition)
+                .OnConflict(onConflict ?? OnConflict.DoNothing());
 
             foreach (var document in documents)
             {
-                var dict = document.ToColumsDictionary();
+                var dict = document.ToColumnsDictionary(false);
+
+                var keys = dict.Keys.ToList();
+                //var columnKeys = PostgresTableDefinition.Columns().Select(c => c.GetNameForDb());
+
+                foreach (var key in keys)
+                {
+                    var c = PostgresTableDefinition.GetColumnByClrName(key) ??
+                            PostgresTableDefinition.GetColumnByDbName(key);
+
+                    if (c == null)
+                    {
+                        dict.Remove(key);
+                    }
+                }
+
                 foreach (var col in PostgresTableDefinition.Columns())
                 {
+
                     if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
                     {
                         var colName = col.ClrName.ToNull() ?? col.DbName.ToNull();
@@ -402,17 +435,49 @@ namespace doob.PgSql.Tables
             return Execute().ExecuteReader(insert.GetSqlCommand(PostgresTableDefinition));
         }
 
+
+
+
         protected Task<JObject> InsertAsync<TAny>(TAny document, List<string> returnValues = null)
         {
-            return InsertAsync<TAny>(new[] { document }, returnValues).FirstOrDefaultAsync();
+            return InsertWithConflictAsync<TAny>(new[] { document }, returnValues, OnConflict.DoNothing()).FirstOrDefaultAsync();
         }
+        protected Task<JObject> InsertOrUpdateAsync<TAny>(TAny document, List<string> returnValues = null)
+        {
+            return InsertWithConflictAsync<TAny>(new[] { document }, returnValues, OnConflict.DoUpdate()).FirstOrDefaultAsync();
+        }
+
         protected Task<IEnumerable<JObject>> InsertAsync<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null)
         {
+            return InsertWithConflictAsync(documents, returnValues, OnConflict.DoNothing());
+        }
+        protected Task<IEnumerable<JObject>> InsertOrUpdateAsync<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null)
+        {
+            return InsertWithConflictAsync(documents, returnValues, OnConflict.DoUpdate());
+        }
+
+        protected Task<IEnumerable<JObject>> InsertWithConflictAsync<TAny>(IEnumerable<TAny> documents, List<string> returnValues = null, OnConflict onConflict = null)
+        {
             var insert = Statements.Insert.Into(GetTableName())
-                .AddColumnsFromTableDefinition(PostgresTableDefinition);
+                .AddColumnsFromTableDefinition(PostgresTableDefinition)
+                .OnConflict(onConflict ?? OnConflict.DoNothing());
+
             foreach (var document in documents)
             {
-                var dict = document.ToColumsDictionary();
+                var dict = document.ToColumnsDictionary(false);
+
+                var keys = dict.Keys.ToList();
+                foreach (var key in keys)
+                {
+                    var c = PostgresTableDefinition.GetColumnByClrName(key) ??
+                            PostgresTableDefinition.GetColumnByDbName(key);
+
+                    if (c == null)
+                    {
+                        dict.Remove(key);
+                    }
+                }
+
                 foreach (var col in PostgresTableDefinition.Columns())
                 {
                     if (!col.CanBeNull && !String.IsNullOrWhiteSpace(col.DefaultValue))
@@ -440,7 +505,6 @@ namespace doob.PgSql.Tables
 
             return Execute().ExecuteReaderAsync(insert.GetSqlCommand(PostgresTableDefinition));
         }
-
 
         #endregion
 

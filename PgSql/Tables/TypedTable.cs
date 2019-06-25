@@ -118,18 +118,35 @@ namespace doob.PgSql.Tables
         {
             return base.Insert(document, returnValues)?.ToObject<Dictionary<string, object>>();
         }
+        public Dictionary<string, object> InsertOrUpdate(T document, List<string> returnValues = null)
+        {
+            return base.InsertOrUpdate(document, returnValues)?.ToObject<Dictionary<string, object>>();
+        }
+
         public IEnumerable<Dictionary<string, object>> Insert(IEnumerable<T> documents, List<string> returnValues = null)
         {
             return base.Insert((IEnumerable<object>)documents, returnValues).Select(Converter.Json.ToObject<Dictionary<string, object>>);
+        }
+        public IEnumerable<Dictionary<string, object>> InsertOrUpdate(IEnumerable<T> documents, List<string> returnValues = null)
+        {
+            return base.InsertOrUpdate((IEnumerable<object>)documents, returnValues).Select(Converter.Json.ToObject<Dictionary<string, object>>);
         }
 
         public Task<Dictionary<string, object>> InsertAsync(T document, List<string> returnValues = null)
         {
             return base.InsertAsync(document, returnValues)?.ToObjectAsync<Dictionary<string, object>>();
         }
+        public Task<Dictionary<string, object>> InsertOrUpdateAsync(T document, List<string> returnValues = null)
+        {
+            return base.InsertOrUpdateAsync(document, returnValues)?.ToObjectAsync<Dictionary<string, object>>();
+        }
         public Task<IEnumerable<Dictionary<string, object>>> InsertAsync(IEnumerable<T> documents, List<string> returnValues = null)
         {
             return base.InsertAsync((IEnumerable<object>)documents, returnValues).SelectAsync(Converter.Json.ToObject<Dictionary<string, object>>);
+        }
+        public Task<IEnumerable<Dictionary<string, object>>> InsertOrUpdateAsync(IEnumerable<T> documents, List<string> returnValues = null)
+        {
+            return base.InsertOrUpdateAsync((IEnumerable<object>)documents, returnValues).SelectAsync(Converter.Json.ToObject<Dictionary<string, object>>);
         }
 
         #endregion

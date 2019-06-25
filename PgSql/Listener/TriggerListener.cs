@@ -7,6 +7,7 @@ using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Helper;
 using doob.PgSql.Tables;
 using Npgsql;
+using Reflectensions.Helpers;
 
 namespace doob.PgSql.Listener
 {

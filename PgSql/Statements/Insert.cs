@@ -77,7 +77,7 @@ namespace doob.PgSql.Statements
 
         public Insert AddValuesFromObject(object @object)
         {
-            return AddNamedValues(@object.ToColumsDictionary().ToArray());
+            return AddNamedValues(@object.ToColumnsDictionary(false).ToArray());
         }
 
         public Insert Returning(Returning returning)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using doob.PgSql.CustomTypes;
 
@@ -16,11 +17,11 @@ namespace doob.PgSql.Interfaces.Where.Typed
         ITypedWhereClauseConnectionOr<T> Between(string propertyName, object min, object max);
         ITypedWhereClauseConnectionOr<T> IsNull(string propertyName);
         ITypedWhereClauseConnectionOr<T> IsNotNull(string propertyName);
-        ITypedWhereClauseConnectionOr<T> Any(string propertyName, params object[] value);
+        ITypedWhereClauseConnectionOr<T> Any<TField>(string propertyName, IEnumerable<TField> value);
         ITypedWhereClauseConnectionOr<T> Contains(string propertyName, object value);
         ITypedWhereClauseConnectionOr<T> Contains(string propertyName, string value, bool ignoreCase);
         ITypedWhereClauseConnectionOr<T> Like(string propertyName, string value);
-        ITypedWhereClauseConnectionOr<T> Like(string propertyName, string value, bool ignoreCase);
+        ITypedWhereClauseConnectionOr<T> Like(string propertyName, string value, bool ignoreCase, bool invertOrder);
 
         ITypedWhereClauseConnectionOr<T> Eq<TField>(Expression<Func<T, TField>> expression, TField value);
         ITypedWhereClauseConnectionOr<T> Lt<TField>(Expression<Func<T, TField>> expression, TField value);
@@ -35,6 +36,9 @@ namespace doob.PgSql.Interfaces.Where.Typed
         ITypedWhereClauseConnectionOr<T> Contains<TField>(Expression<Func<T, TField>> expression, string value, bool ignoreCase);
         ITypedWhereClauseConnectionOr<T> Like<TField>(Expression<Func<T, TField>> expression, string value);
         ITypedWhereClauseConnectionOr<T> Like<TField>(Expression<Func<T, TField>> expression, string value, bool ignoreCase);
+
+        ITypedWhereClauseConnectionOr<T> Like<TField>(string value, Expression<Func<T, TField>> expression);
+        ITypedWhereClauseConnectionOr<T> Like<TField>(string value, Expression<Func<T, TField>> expression, bool ignoreCase);
 
         #region LTree
         ITypedWhereClauseConnectionOr<T> LTreeMatch(string propertyName, string value);

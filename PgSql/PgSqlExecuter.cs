@@ -12,6 +12,7 @@ using Newtonsoft.Json.Linq;
 using Npgsql;
 using NpgsqlTypes;
 using Reflectensions.ExtensionMethods;
+using Reflectensions.Helpers;
 
 namespace doob.PgSql
 {
@@ -20,10 +21,13 @@ namespace doob.PgSql
         private readonly ILog _logger = LogProvider.For<PgSqlExecuter>();
         private readonly NpgsqlConnection _connection;
         private NpgsqlTransaction _transaction;
+        private AsyncLock _asyncLock = new AsyncLock();
 
         public PgSqlExecuter(ConnectionString connection)
         {
-            _connection = new NpgsqlConnection(connection.ToNpgSqlConnectionString());
+            var builder = new NpgsqlConnectionStringBuilder(connection.ToNpgSqlConnectionString());
+            builder.Pooling = false;
+            _connection = new NpgsqlConnection(builder.ToString());
         }
 
         public PgSqlExecuter BeginTransaction()
@@ -56,39 +60,45 @@ namespace doob.PgSql
 
         private NpgsqlCommand PrepareCommand(PgSqlCommand sqlCommand)
         {
-            var com = new NpgsqlCommand(sqlCommand.Command, _connection);
+            
+                var com = new NpgsqlCommand(sqlCommand.Command, _connection);
 
-            _logger.Trace(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
+                _logger.Trace(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
 
-            foreach (var param in sqlCommand.Parameters)
-            {
-                com.Parameters.Add(BuildNpgsqlParameter(param));
-            }
+                foreach (var param in sqlCommand.Parameters)
+                {
+                    com.Parameters.Add(BuildNpgsqlParameter(param));
+                }
 
-            if (_transaction != null)
-            {
-                com.Transaction = _transaction;
-            }
-            com.Connection.OpenConnection();
-            return com;
+                if (_transaction != null)
+                {
+                    com.Transaction = _transaction;
+                }
+
+                //com.Connection.OpenConnection();
+                return com;
+            
         }
         private async Task<NpgsqlCommand> PrepareCommandAsync(PgSqlCommand sqlCommand)
         {
-            var com = new NpgsqlCommand(sqlCommand.Command, _connection);
+            
+                var com = new NpgsqlCommand(sqlCommand.Command, _connection);
 
-            _logger.Trace(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
+                _logger.Trace(() => $"PrepareCommand: {com.Connection?.ConnectionString};");
 
-            foreach (var param in sqlCommand.Parameters)
-            {
-                com.Parameters.Add(BuildNpgsqlParameter(param));
-            }
+                foreach (var param in sqlCommand.Parameters)
+                {
+                    com.Parameters.Add(BuildNpgsqlParameter(param));
+                }
 
-            if (_transaction != null)
-            {
-                com.Transaction = _transaction;
-            }
-            await com.Connection.OpenConnectionAsync();
-            return com;
+                if (_transaction != null)
+                {
+                    com.Transaction = _transaction;
+                }
+
+                //await com.Connection.OpenConnectionAsync();
+                return com;
+            
         }
 
 
@@ -115,30 +125,32 @@ namespace doob.PgSql
         public int ExecuteNonQuery(NpgsqlCommand sqlCommand)
         {
 
-            _logger.Trace(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
 
-            int result = 0;
-            try
-            {
-                result = sqlCommand.ExecuteNonQuery();
-            }
-            //catch (PostgresException pgEx)
-            //{
-            //    if (pgEx.SqlState != "XA0000")
-            //        throw;
-            //}
-            catch (Exception e)
-            {
 
-                _logger.ErrorFormat($"ExecuteNonQuery::{{e}}", e);
-                throw;
-            }
-            finally
+            using (_asyncLock.Lock())
             {
-                EndCommand(sqlCommand);
+                int result = 0;
+                try
+                {
+                    sqlCommand.Connection.OpenConnection();
+                    _logger.Trace(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
+                    result = sqlCommand.ExecuteNonQuery();
+
+
+                }
+                catch (Exception e)
+                {
+                    _logger.ErrorFormat($"ExecuteNonQuery::{{e}}", e);
+                    throw;
+                }
+                finally
+                {
+                    EndCommand(sqlCommand);
+                }
+                return result;
             }
 
-            return result;
+           
         }
 
         public Task<int> ExecuteNonQueryAsync(string sqlCommand)
@@ -155,25 +167,30 @@ namespace doob.PgSql
         public async Task<int> ExecuteNonQueryAsync(NpgsqlCommand sqlCommand)
         {
 
-            _logger.Trace(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
-
-            int result;
-
-            try
+            using (await _asyncLock.LockAsync())
             {
-                result = await sqlCommand.ExecuteNonQueryAsync();
-            }
-            catch (Exception e)
-            {
-                _logger.ErrorFormat($"ExecuteNonQuery::{{e}}", e);
-                throw;
-            }
-            finally
-            {
-                EndCommand(sqlCommand);
+                int result;
+
+                try
+                {
+                    await sqlCommand.Connection.OpenConnectionAsync();
+                    _logger.Trace(() => $"ExecuteNonQuery::{sqlCommand.CommandText}");
+                    result = await sqlCommand.ExecuteNonQueryAsync();
+                }
+                catch (Exception e)
+                {
+                    _logger.ErrorFormat($"ExecuteNonQuery::{{e}}", e);
+                    throw;
+                }
+                finally
+                {
+                    EndCommand(sqlCommand);
+                }
+
+                return result;
             }
 
-            return result;
+                
 
         }
         #endregion
@@ -193,40 +210,44 @@ namespace doob.PgSql
         }
         public IEnumerable<JObject> ExecuteReader(NpgsqlCommand sqlCommand)
         {
-            _logger.Trace(() => $"ExecuteReader::{sqlCommand.CommandText}");
-
-            List<JObject> items = new List<JObject>();
-
-            try
+            using (_asyncLock.Lock())
             {
-                using (var reader = sqlCommand.ExecuteReader())
-                {
-                    var columns = reader.GetColumnSchema();
-                    while (reader.Read())
-                    {
-                        var jo = new JObject();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
+                _logger.Trace(() => $"ExecuteReader::{sqlCommand.CommandText}");
 
-                            jo.Add(columns[i].ColumnName, ConvertFromDb(reader[i], columns[i].DataTypeName));
+                List<JObject> items = new List<JObject>();
+
+                try
+                {
+                    sqlCommand.Connection.OpenConnection();
+                    using (var reader = sqlCommand.ExecuteReader())
+                    {
+                        var columns = reader.GetColumnSchema();
+                        while (reader.Read())
+                        {
+                            var jo = new JObject();
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+
+                                jo.Add(columns[i].ColumnName, ConvertFromDb(reader[i], columns[i].DataTypeName));
+                            }
+
+                            items.Add(jo);
                         }
-                        items.Add(jo);
                     }
+
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(e, "ExecuteReader", sqlCommand.CommandText);
+                    throw;
+                }
+                finally
+                {
+                    EndCommand(sqlCommand);
                 }
 
+                return items;
             }
-            catch (Exception e)
-            {
-                _logger.Error(e, "ExecuteReader", sqlCommand.CommandText);
-                throw;
-            }
-            finally
-            {
-                EndCommand(sqlCommand);
-            }
-
-            return items;
-
         }
 
         public Task<IEnumerable<JObject>> ExecuteReaderAsync(string sqlCommand)
@@ -242,40 +263,45 @@ namespace doob.PgSql
         }
         public async Task<IEnumerable<JObject>> ExecuteReaderAsync(NpgsqlCommand sqlCommand)
         {
-            _logger.Trace(() => $"ExecuteReader::{sqlCommand.CommandText}");
-
-            List<JObject> items = new List<JObject>();
-
-            try
+            using (await _asyncLock.LockAsync())
             {
-                using (var reader = await sqlCommand.ExecuteReaderAsync())
-                {
+                _logger.Trace(() => $"ExecuteReader::{sqlCommand.CommandText}");
 
-                    var columns = reader.GetColumnSchema();
-                    while (await reader.ReadAsync())
+                List<JObject> items = new List<JObject>();
+
+                try
+                {
+                    await sqlCommand.Connection.OpenConnectionAsync();
+                    using (var reader = await sqlCommand.ExecuteReaderAsync())
                     {
-                        var jo = new JObject();
-                        for (int i = 0; i < reader.FieldCount; i++)
+
+                        var columns = reader.GetColumnSchema();
+                        while (await reader.ReadAsync())
                         {
-                            jo.Add(columns[i].ColumnName, ConvertFromDb(reader[i], columns[i].DataTypeName));
+                            var jo = new JObject();
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                jo.Add(columns[i].ColumnName, ConvertFromDb(reader[i], columns[i].DataTypeName));
+                            }
+
+                            items.Add(jo);
                         }
-                        items.Add(jo);
                     }
+
+
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(e, "ExecuteReader", sqlCommand.CommandText);
+                    throw;
+                }
+                finally
+                {
+                    EndCommand(sqlCommand);
                 }
 
-               
+                return items;
             }
-            catch (Exception e)
-            {
-                _logger.Error(e, "ExecuteReader", sqlCommand.CommandText);
-                throw;
-            }
-            finally
-            {
-                EndCommand(sqlCommand);
-            }
-
-            return items;
         }
 
 
@@ -324,25 +350,29 @@ namespace doob.PgSql
         {
             if (sqlCommand == null) throw new ArgumentNullException(nameof(sqlCommand));
 
-            _logger.Trace(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
+            using (_asyncLock.Lock())
+            {
+                _logger.Trace(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
 
-            TOut result;
-            try
-            {
-                result = sqlCommand.ExecuteScalar().CloneTo<TOut>();
-            }
-            catch (Exception e)
-            {
-                _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{command}}", sqlCommand.CommandText);
-                _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{e}}", e);
-                throw;
-            }
-            finally
-            {
-                EndCommand(sqlCommand);
-            }
+                TOut result;
+                try
+                {
+                    sqlCommand.Connection.OpenConnection();
+                    result = sqlCommand.ExecuteScalar().CloneTo<TOut>();
+                }
+                catch (Exception e)
+                {
+                    _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{command}}", sqlCommand.CommandText);
+                    _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{e}}", e);
+                    throw;
+                }
+                finally
+                {
+                    EndCommand(sqlCommand);
+                }
 
-            return result;
+                return result;
+            }
         }
 
 
@@ -360,25 +390,30 @@ namespace doob.PgSql
         }
         public async Task<TOut> ExecuteScalarAsync<TOut>(NpgsqlCommand sqlCommand)
         {
-
-            _logger.Trace(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
-
-            TOut result;
-
-            try
+            using (await _asyncLock.LockAsync())
             {
-                result = await sqlCommand.ExecuteScalarAsync().CastToTaskOf<TOut>();
-            }
-            catch (Exception e)
-            {
-                _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{command}}", sqlCommand.CommandText);
-                _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{e}}", e);
-                throw;
-            } finally {
-                EndCommand(sqlCommand);
-            }
+                _logger.Trace(() => $"ExecuteScalar<{typeof(TOut).FullName}>::{sqlCommand.CommandText}");
 
-            return result;
+                TOut result;
+
+                try
+                {
+                    await sqlCommand.Connection.OpenConnectionAsync();
+                    result = await sqlCommand.ExecuteScalarAsync().CastToTaskOf<TOut>();
+                }
+                catch (Exception e)
+                {
+                    _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{command}}", sqlCommand.CommandText);
+                    _logger.DebugFormat($"ExecuteScalar<{typeof(TOut).FullName}>::{{e}}", e);
+                    throw;
+                }
+                finally
+                {
+                    EndCommand(sqlCommand);
+                }
+
+                return result;
+            }
         }
 
 
@@ -456,7 +491,8 @@ namespace doob.PgSql
 
                 NpgsqlDbType type = NpgsqlDbType.Text;
 
-                
+
+               
 
                 if (param.Column?.DotNetType?.IsEnum == true || param.Column?.DotNetType.IsNullableType() == true && param.Column?.DotNetType.GetInnerTypeFromNullable().IsEnum == true)
                 {
@@ -500,6 +536,18 @@ namespace doob.PgSql
                     return new NpgsqlParameter(param.UniqueId, NpgsqlDbType.Unknown) { Value = ltree.ToString() };
                 }
 
+                if (param.Value is JToken _jtoken)
+                {
+                    param.Value = _jtoken.ToBasicDotNetObject();
+                }
+
+                if (param.Value == null)
+                {
+                    return new NpgsqlParameter(param.UniqueId, DBNull.Value);
+                }
+
+                if (param.Value.GetType().IsEnumerableType(false))
+                    type = type | NpgsqlDbType.Array;
 
                 object value = null;
                 switch (type)

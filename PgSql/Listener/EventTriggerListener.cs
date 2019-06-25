@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using doob.PgSql.Helper;
 using Npgsql;
+using Reflectensions.Helpers;
 
 namespace doob.PgSql.Listener
 {

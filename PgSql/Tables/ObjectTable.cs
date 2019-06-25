@@ -94,19 +94,36 @@ namespace doob.PgSql.Tables
         {
             return Converter.Json.ToObject<Dictionary<string, object>>(base.Insert(document, returnValues));
         }
+        public Dictionary<string, object> InsertOrUpdate(object document, List<string> returnValues = null)
+        {
+            return Converter.Json.ToObject<Dictionary<string, object>>(base.InsertOrUpdate(document, returnValues));
+        }
 
         public IEnumerable<Dictionary<string, object>> Insert(IEnumerable<object> documents, List<string> returnValues = null)
         {
             return base.Insert(documents, returnValues).Select(Converter.Json.ToObject<Dictionary<string, object>>);
+        }
+        public IEnumerable<Dictionary<string, object>> InsertOrUpdate(IEnumerable<object> documents, List<string> returnValues = null)
+        {
+            return base.InsertOrUpdate(documents, returnValues).Select(Converter.Json.ToObject<Dictionary<string, object>>);
         }
 
         public async Task<Dictionary<string, object>> InsertAsync(object document, List<string> returnValues = null)
         {
             return Converter.Json.ToObject<Dictionary<string, object>>(await base.InsertAsync(document, returnValues));
         }
+        public async Task<Dictionary<string, object>> InsertOrUpdateAsync(object document, List<string> returnValues = null)
+        {
+            return Converter.Json.ToObject<Dictionary<string, object>>(await base.InsertOrUpdateAsync(document, returnValues));
+        }
+
         public Task<IEnumerable<Dictionary<string, object>>> InsertAsync(IEnumerable<object> documents, List<string> returnValues = null)
         {
             return base.InsertAsync(documents, returnValues).SelectAsync(Converter.Json.ToObject<Dictionary<string, object>>);
+        }
+        public Task<IEnumerable<Dictionary<string, object>>> InsertOrUpdateAsync(IEnumerable<object> documents, List<string> returnValues = null)
+        {
+            return base.InsertOrUpdateAsync(documents, returnValues).SelectAsync(Converter.Json.ToObject<Dictionary<string, object>>);
         }
 
         #endregion

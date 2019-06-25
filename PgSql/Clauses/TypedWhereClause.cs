@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using doob.PgSql.Clauses.Typed;
 using doob.PgSql.CustomTypes;
@@ -78,9 +79,9 @@ namespace doob.PgSql.Clauses
             return this;
         }
 
-        public ITypedWhereClauseConnectionBase<T> Any(string propertyName, params object[] value)
+        public ITypedWhereClauseConnectionBase<T> Any<TField>(string propertyName, IEnumerable<TField> value)
         {
-            _first = new ExpressionAny(propertyName, value);
+            _first = new ExpressionAny<TField>(propertyName, value);
             return this;
         }
 
@@ -99,13 +100,13 @@ namespace doob.PgSql.Clauses
 
         public ITypedWhereClauseConnectionBase<T> Like(string propertyName, string value)
         {
-            _first = new ExpressionLike(propertyName, value, true);
+            _first = new ExpressionLike(propertyName, value, true, false);
             return this;
         }
 
-        public ITypedWhereClauseConnectionBase<T> Like(string propertyName, string value, bool ignoreCase)
+        public ITypedWhereClauseConnectionBase<T> Like(string propertyName, string value, bool ignoreCase, bool invertOrder)
         {
-            _first = new ExpressionLike(propertyName, value, ignoreCase);
+            _first = new ExpressionLike(propertyName, value, ignoreCase, invertOrder);
             return this;
         }
 
@@ -149,7 +150,7 @@ namespace doob.PgSql.Clauses
             return IsNotNull(expression.GetPropertyName());
         }
 
-        public ITypedWhereClauseConnectionBase<T> Any<TField>(Expression<Func<T, TField>> expression, params object[] value)
+        public ITypedWhereClauseConnectionBase<T> Any<TField, TListField>(Expression<Func<T, TField>> expression, IEnumerable<TListField> value)
         {
             return Any(expression.GetPropertyName(), value);
         }
@@ -171,7 +172,17 @@ namespace doob.PgSql.Clauses
 
         public ITypedWhereClauseConnectionBase<T> Like<TField>(Expression<Func<T, TField>> expression, string value, bool ignoreCase)
         {
-            return Like(expression.GetPropertyName(), value, ignoreCase);
+            return Like(expression.GetPropertyName(), value, ignoreCase, false);
+        }
+
+        public ITypedWhereClauseConnectionBase<T> Like<TField>(string value, Expression<Func<T, TField>> expression)
+        {
+            return Like(expression.GetPropertyName(), value, false, true);
+        }
+
+        public ITypedWhereClauseConnectionBase<T> Like<TField>(string value, Expression<Func<T, TField>> expression, bool ignoreCase)
+        {
+            return Like(expression.GetPropertyName(), value, ignoreCase, true);
         }
 
         public ITypedWhereClauseLogicalAnd<T> And()

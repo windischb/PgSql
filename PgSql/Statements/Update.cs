@@ -1,16 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using doob.PgSql.Attributes;
 using doob.PgSql.Clauses;
 using doob.PgSql.ExtensionMethods;
 using doob.PgSql.Interfaces;
 using doob.PgSql.Interfaces.Where;
+using doob.PgSql.Logging;
+using Reflectensions.ExtensionMethods;
 
 namespace doob.PgSql.Statements
 {
     public class Update : ISQLCommand
     {
+
+        private static readonly ILog Logger = LogProvider.For<Update>();
+
         private IUpdateDestination _updateDestination;
         private Set _set;
         private IWhere _whereClause;
@@ -57,31 +64,10 @@ namespace doob.PgSql.Statements
         public Update SetValueFromObject(object @object)
         {
 
-            
-            var nDict = @object.ToColumsDictionary(); // Converter.Json.ToDictionary(@object);
+            var dict = @object.ToColumnsDictionary(true);
 
-            //Dictionary<string, object> tempDict = null;
-            //if (@object is JObject)
-            //    tempDict = ((JObject)@object).ToObject<Dictionary<string, object>>();
 
-            //if (tempDict == null)
-            //{
-            //    var dict = @object as IDictionary<string, object>;
-            //    if (dict != null)
-            //    {
-            //        tempDict = new Dictionary<string, object>(dict, StringComparer.OrdinalIgnoreCase);
-            //    }
-            //    else
-            //    {
-
-            //        tempDict = @object.GetType().GetProperties().ToDictionary(
-            //            (p) => p.Name,
-            //            (p) => p.GetValue(@object),
-            //            StringComparer.OrdinalIgnoreCase);
-            //    }
-            //}
-
-            return SetValues(nDict.ToArray());
+            return SetValues(dict.ToArray());
         }
 
 

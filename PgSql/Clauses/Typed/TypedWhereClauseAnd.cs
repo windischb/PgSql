@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using doob.PgSql.CustomTypes;
 using doob.PgSql.Expressions;
@@ -82,9 +83,9 @@ namespace doob.PgSql.Clauses.Typed
             return this;
         }
 
-        public ITypedWhereClauseConnectionAnd<T> Any(string propertyName, params object[] value)
+        public ITypedWhereClauseConnectionAnd<T> Any<TField>(string propertyName, IEnumerable<TField> value)
         {
-            var expr = new ExpressionAny(propertyName, value);
+            var expr = new ExpressionAny<TField>(propertyName, value);
             Xpressions.Add(expr);
             return this;
         }
@@ -105,14 +106,14 @@ namespace doob.PgSql.Clauses.Typed
 
         public ITypedWhereClauseConnectionAnd<T> Like(string propertyName, string value)
         {
-            var expr = new ExpressionLike(propertyName, value, true);
+            var expr = new ExpressionLike(propertyName, value, true, false);
             Xpressions.Add(expr);
             return this;
         }
 
-        public ITypedWhereClauseConnectionAnd<T> Like(string propertyName, string value, bool ignoreCase)
+        public ITypedWhereClauseConnectionAnd<T> Like(string propertyName, string value, bool ignoreCase, bool invertOrder)
         {
-            var expr = new ExpressionLike(propertyName, value, ignoreCase);
+            var expr = new ExpressionLike(propertyName, value, ignoreCase, invertOrder);
             Xpressions.Add(expr);
             return this;
         }
@@ -157,9 +158,9 @@ namespace doob.PgSql.Clauses.Typed
             return IsNotNull(expression.GetPropertyName());
         }
 
-        public ITypedWhereClauseConnectionAnd<T> Any<TField>(Expression<Func<T, TField>> expression, params object[] value)
+        public ITypedWhereClauseConnectionAnd<T> Any<TField, TListField>(Expression<Func<T, TField>> expression, IEnumerable<TListField> value)
         {
-            return Any(expression.GetPropertyName(), value);
+            return Any(expression.GetPropertyName(), value?.Cast<object>());
         }
 
         public ITypedWhereClauseConnectionAnd<T> Contains<TField>(Expression<Func<T, TField>> expression, object value)
@@ -179,7 +180,17 @@ namespace doob.PgSql.Clauses.Typed
 
         public ITypedWhereClauseConnectionAnd<T> Like<TField>(Expression<Func<T, TField>> expression, string value, bool ignoreCase)
         {
-            return Like(expression.GetPropertyName(), value, ignoreCase);
+            return Like(expression.GetPropertyName(), value, ignoreCase, false);
+        }
+
+        public ITypedWhereClauseConnectionAnd<T> Like<TField>(string value, Expression<Func<T, TField>> expression)
+        {
+            return Like(expression.GetPropertyName(), value, false, true);
+        }
+
+        public ITypedWhereClauseConnectionAnd<T> Like<TField>(string value, Expression<Func<T, TField>> expression, bool ignoreCase)
+        {
+            return Like(expression.GetPropertyName(), value, ignoreCase, true);
         }
 
 

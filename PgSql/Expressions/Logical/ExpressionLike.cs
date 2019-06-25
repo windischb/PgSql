@@ -11,7 +11,9 @@ namespace doob.PgSql.Expressions.Logical
         private readonly bool _ignoreCase;
         private Type valueType;
 
-        public ExpressionLike(string propertyName, string value, bool ignoreCase) : base(propertyName)
+        private bool _invertOrder;
+
+        public ExpressionLike(string propertyName, string value, bool ignoreCase, bool invertOrder) : base(propertyName)
         {
 
             value = value?
@@ -35,6 +37,7 @@ namespace doob.PgSql.Expressions.Logical
             }
 
             _ignoreCase = ignoreCase;
+            _invertOrder = invertOrder;
         }
 
         protected override void _getSqlCommand(Column column)
@@ -100,14 +103,16 @@ namespace doob.PgSql.Expressions.Logical
 
                     searchstr = $"{searchstr}->>'{props.Last()}'::text";
 
-                    comm = $"{collName}{searchstr} {like} @{GetId("like")}";
+                    comm = _invertOrder ? $"@{GetId("like")} {like} {collName}{searchstr} " : $"{collName}{searchstr} {like} @{GetId("like")}";
 
 
                     SetCommand(comm);
                     return;
             }
 
-            SetCommand($"{collName}::text {like} @{GetId("like")}");
+            comm = _invertOrder ? $"@{GetId("like")} {like} { collName}::text" : $"{collName}::text {like} @{GetId("like")}";
+
+            SetCommand(comm);
         }
 
     }

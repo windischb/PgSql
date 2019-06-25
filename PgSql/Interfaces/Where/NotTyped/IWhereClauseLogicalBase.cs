@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace doob.PgSql.Interfaces.Where.NotTyped
 {
     public interface IWhereClauseLogicalBase : IWhere
@@ -14,9 +16,9 @@ namespace doob.PgSql.Interfaces.Where.NotTyped
         IWhereClauseConnectionBase Between(string propertyName, object min, object max);
         IWhereClauseConnectionBase IsNull(string propertyName);
         IWhereClauseConnectionBase IsNotNull(string propertyName);
-        IWhereClauseConnectionBase Any(string propertyName, params object[] value);
+        IWhereClauseConnectionBase Any<TField>(string propertyName, IEnumerable<TField> value);
         IWhereClauseConnectionBase Like(string propertyName, string value);
-        IWhereClauseConnectionBase Like(string propertyName, string value, bool ignoreCase);
+        IWhereClauseConnectionBase Like(string propertyName, string value, bool ignoreCase, bool invertOrder);
 
         #region LTree
         IWhereClauseConnectionBase LTreeMatch(string propertyName, string value);
